@@ -1,13 +1,7 @@
 package byos
 
-import db.jooq.generated.Public
-import graphql.language.Argument
-import graphql.language.EnumValue
-import graphql.language.Field
-import graphql.language.IntValue
-import graphql.language.ObjectValue
-import graphql.language.OperationDefinition
-import graphql.language.SelectionSet
+import com.fasterxml.jackson.databind.JsonNode
+import graphql.language.*
 import graphql.schema.GraphQLSchema
 import org.jooq.Condition
 import org.jooq.JSON
@@ -29,7 +23,7 @@ sealed class InternalQueryNode(val graphQLFieldName: String, val graphQLAlias: S
 }
 
 data class FieldTypeInfo(val graphQLTypeName: String, val isList: Boolean) {
-    val relationName = graphQLTypeName.lowercase()
+    val relationName = graphQLTypeName;//.lowercase()
 }
 
 data class ConnectionInfo(
@@ -49,105 +43,224 @@ data class PageInfo(
 
 class QueryTranspiler(
     private val whereCondition: WhereCondition,
-    private val schema: GraphQLSchema
+    private val schema: GraphQLSchema,
+    private val tableAndConditionService: TableAndConditionService
 ) {
 
-    fun buildInternalQueryTrees(queryDefinition: OperationDefinition): List<InternalQueryNode.Relation> =
-        getChildrenFromSelectionSet(queryDefinition.selectionSet, Counter()).map { it as InternalQueryNode.Relation }
+    fun buildInternalQueryTrees(
+        queryDefinition: OperationDefinition,
+        fragments: List<FragmentDefinition>
+    ): List<InternalQueryNode.Relation> =
+        getChildrenFromSelectionSet(queryDefinition.selectionSet, fragments, Counter()).map {
+            it as InternalQueryNode.Relation
+        }
 
     private fun getChildrenFromSelectionSet(
         selectionSet: SelectionSet,
+        fragments: List<FragmentDefinition>,
         counter: Counter,
         parentGraphQlTypeName: String = schema.queryType.name
-    ): List<InternalQueryNode> =
-        selectionSet.selections
-            .filterIsInstance<Field>()
-            .map { selection ->
-                val subSelectionSet = selection.selectionSet
-                when {
-                    subSelectionSet == null -> {
-                        InternalQueryNode.Attribute(
-                            graphQLFieldName = selection.name,
-                            graphQLAlias = selection.alias ?: selection.name
+    ): List<InternalQueryNode> {
+        val fieldsFromSpread = selectionSet.selections.filterIsInstance<FragmentSpread>().map { fragmentSpread ->
+            val fragment = fragments.filterIsInstance<FragmentDefinition>().single {
+                it.name == fragmentSpread.name
+            }
+            fragment.selectionSet.selections.filterIsInstance<Field>().map { field ->
+                field
+            }
+        }
+        val result = listOf(selectionSet.selections, fieldsFromSpread.flatten()).flatten().filterIsInstance<Field>().map { selection ->
+            val subSelectionSet = selection.selectionSet
+            when {
+                subSelectionSet == null -> {
+                    InternalQueryNode.Attribute(
+                        graphQLFieldName = selection.name,
+                        graphQLAlias = selection.alias ?: selection.name
+                    )
+                }
+
+                subSelectionSet.selections.any { it is Field && it.name == "edges" } -> {
+                    val edgesSelection =
+                        subSelectionSet.selections.filterIsInstance<Field>().single {
+                            it.name == "edges"
+                        }
+                    val nodeSelection =
+                        edgesSelection.selectionSet!!.selections.filterIsInstance<Field>()
+                            .single { it.name == "node" }
+                    val nodeSubSelectionSet = nodeSelection.selectionSet
+                    val pageInfoSelections =
+                        subSelectionSet.selections.filterIsInstance<Field>().filter {
+                            it.name == "pageInfo"
+                        }
+
+                    val queryTypeInfo =
+                        getFieldTypeInfo(schema, selection.name, parentGraphQlTypeName)
+                    val edgesTypeInfo =
+                        getFieldTypeInfo(
+                            schema,
+                            edgesSelection.name,
+                            queryTypeInfo.graphQLTypeName
                         )
-                    }
-
-                    subSelectionSet.selections.any { it is Field && it.name == "edges" } -> {
-                        val edgesSelection = subSelectionSet.selections.filterIsInstance<Field>().single { it.name == "edges" }
-                        val nodeSelection = edgesSelection.selectionSet!!.selections.filterIsInstance<Field>().single { it.name == "node" }
-                        val nodeSubSelectionSet = nodeSelection.selectionSet
-                        val pageInfoSelections = subSelectionSet.selections.filterIsInstance<Field>().filter { it.name == "pageInfo" }
-
-                        val queryTypeInfo = getFieldTypeInfo(schema, selection.name, parentGraphQlTypeName)
-                        val edgesTypeInfo = getFieldTypeInfo(schema, edgesSelection.name, queryTypeInfo.graphQLTypeName)
-                        val nodeTypeInfo = getFieldTypeInfo(schema, nodeSelection.name, edgesTypeInfo.graphQLTypeName)
-
-                        InternalQueryNode.Relation(
-                            graphQLFieldName = selection.name,
-                            graphQLAlias = selection.alias ?: selection.name,
-                            sqlAlias = "${selection.name}-${counter.getIncrementingNumber()}",
-                            fieldTypeInfo = nodeTypeInfo,
-                            children = getChildrenFromSelectionSet(nodeSubSelectionSet, counter, nodeTypeInfo.graphQLTypeName),
-                            arguments = selection.arguments,
-                            connectionInfo = ConnectionInfo(
-                                edgesGraphQLAlias = edgesSelection.alias ?: edgesSelection.name,
-                                nodeGraphQLAlias = nodeSelection.alias ?: nodeSelection.name,
-                                cursorGraphQLAliases = edgesSelection.selectionSet!!.selections.filterIsInstance<Field>().filter { it.name == "cursor" }
-                                    .map { it.alias ?: it.name },
-                                totalCountGraphQLAliases = subSelectionSet.selections.filterIsInstance<Field>().filter { it.name == "totalCount" }
-                                    .map { it.alias ?: it.name },
-                                pageInfos = pageInfoSelections.map { pageInfoSelection ->
-                                    val pageInfoSelectionSet = pageInfoSelection.selectionSet
-                                    PageInfo(
-                                        graphQLAlias = pageInfoSelection.alias ?: pageInfoSelection.name,
-                                        hasNextPageGraphQlAliases = pageInfoSelectionSet!!.selections.filterIsInstance<Field>()
-                                            .filter { it.name == "hasNextPage" }
-                                            .map { it.alias ?: it.name },
-                                        endCursorGraphQlAliases = pageInfoSelectionSet.selections.filterIsInstance<Field>().filter { it.name == "endCursor" }
-                                            .map { it.alias ?: it.name },
-                                    )
-                                }
-                            )
+                    val nodeTypeInfo =
+                        getFieldTypeInfo(
+                            schema,
+                            nodeSelection.name,
+                            edgesTypeInfo.graphQLTypeName
                         )
-                    }
 
-                    else -> {
-                        val fieldTypeInfo = getFieldTypeInfo(schema, selection.name, parentGraphQlTypeName)
-                        InternalQueryNode.Relation(
-                            graphQLFieldName = selection.name,
-                            graphQLAlias = selection.alias ?: selection.name,
-                            sqlAlias = "${selection.name}-${counter.getIncrementingNumber()}",
-                            fieldTypeInfo = fieldTypeInfo,
-                            children = getChildrenFromSelectionSet(subSelectionSet, counter, fieldTypeInfo.graphQLTypeName),
-                            arguments = selection.arguments,
-                            connectionInfo = null
+                    InternalQueryNode.Relation(
+                        graphQLFieldName = selection.name,
+                        graphQLAlias = selection.alias ?: selection.name,
+                        sqlAlias = "${selection.name}-${counter.getIncrementingNumber()}",
+                        fieldTypeInfo = nodeTypeInfo,
+                        children =
+                        getChildrenFromSelectionSet(
+                            nodeSubSelectionSet,
+                            fragments,
+                            counter,
+                            nodeTypeInfo.graphQLTypeName
+                        ),
+                        arguments = selection.arguments,
+                        connectionInfo =
+                        ConnectionInfo(
+                            edgesGraphQLAlias = edgesSelection.alias
+                                ?: edgesSelection.name,
+                            nodeGraphQLAlias = nodeSelection.alias
+                                ?: nodeSelection.name,
+                            cursorGraphQLAliases =
+                            edgesSelection.selectionSet!!
+                                .selections
+                                .filterIsInstance<Field>()
+                                .filter { it.name == ByosConstants.CURSOR }
+                                .map { it.alias ?: it.name },
+                            totalCountGraphQLAliases =
+                            subSelectionSet
+                                .selections
+                                .filterIsInstance<Field>()
+                                .filter { it.name == "totalCount" }
+                                .map { it.alias ?: it.name },
+                            pageInfos =
+                            pageInfoSelections.map { pageInfoSelection
+                                ->
+                                val pageInfoSelectionSet =
+                                    pageInfoSelection.selectionSet
+                                PageInfo(
+                                    graphQLAlias =
+                                    pageInfoSelection.alias
+                                        ?: pageInfoSelection
+                                            .name,
+                                    hasNextPageGraphQlAliases =
+                                    pageInfoSelectionSet!!
+                                        .selections
+                                        .filterIsInstance<
+                                                Field>()
+                                        .filter {
+                                            it.name ==
+                                                    "hasNextPage"
+                                        }
+                                        .map {
+                                            it.alias
+                                                ?: it.name
+                                        },
+                                    endCursorGraphQlAliases =
+                                    pageInfoSelectionSet
+                                        .selections
+                                        .filterIsInstance<
+                                                Field>()
+                                        .filter {
+                                            it.name ==
+                                                    "endCursor"
+                                        }
+                                        .map {
+                                            it.alias
+                                                ?: it.name
+                                        },
+                                )
+                            }
                         )
-                    }
+                    )
+                }
+
+                else -> {
+                    val fieldTypeInfo =
+                        getFieldTypeInfo(schema, selection.name, parentGraphQlTypeName)
+                    InternalQueryNode.Relation(
+                        graphQLFieldName = selection.name,
+                        graphQLAlias = selection.alias ?: selection.name,
+                        sqlAlias = "${selection.name}-${counter.getIncrementingNumber()}",
+                        fieldTypeInfo = fieldTypeInfo,
+                        children =
+                        getChildrenFromSelectionSet(
+                            subSelectionSet,
+                            fragments,
+                            counter,
+                            fieldTypeInfo.graphQLTypeName
+                        ),
+                        arguments = selection.arguments,
+                        connectionInfo = null
+                    )
+                }
+            }
+        }
+        return result;
+    }
+
+//    fun resolveInternalQueryTree(
+//        relation: InternalQueryNode.Relation,
+//        joinCondition: Condition = DSL.noCondition()
+//    ): org.jooq.Field<JSON> {
+//        return resolveInternalQueryTree(relation, Collections.emptyMap(), joinCondition)
+//    }
+
+    fun resolveInternalQueryTree(
+        relation: InternalQueryNode.Relation,
+        variables: Map<String, JsonNode>,
+        joinCondition: Condition = DSL.noCondition()
+    ): org.jooq.Field<JSON> {
+        val outerTable = tableAndConditionService.getTableWithAliasFor(relation)
+
+        val (relations, attributes) =
+            relation.children.partition { it is InternalQueryNode.Relation }
+        val attributeNames =
+            attributes.distinctBy { it.graphQLAlias }.map { attribute ->
+                if (ByosConstants.GRAPHQL_TYPENAME_INTROSPECTION.equals(attribute.graphQLFieldName)) {
+                    DSL.inline(relation.graphQLAlias).`as`(ByosConstants.GRAPHQL_TYPENAME_INTROSPECTION)
+                }
+                else {
+                    outerTable
+                        .field(attribute.graphQLFieldName)//.lowercase())
+                        ?.`as`(attribute.graphQLAlias)
+                        ?: error(
+                            "Field ${attribute.graphQLFieldName} does not exist on table $outerTable"
+                        )
                 }
             }
 
-    fun resolveInternalQueryTree(relation: InternalQueryNode.Relation, joinCondition: Condition = DSL.noCondition()): org.jooq.Field<JSON> {
-        val outerTable = getTableWithAlias(relation)
-
-        val (relations, attributes) = relation.children.partition { it is InternalQueryNode.Relation }
-        val attributeNames = attributes.distinctBy { it.graphQLAlias }
-            .map { attribute ->
-                outerTable.field(attribute.graphQLFieldName.lowercase())?.`as`(attribute.graphQLAlias)
-                    ?: error("Field ${attribute.graphQLFieldName} does not exist on table $outerTable")
+        val subSelects =
+            relations.map { subRelation ->
+                val innerTable =
+                    tableAndConditionService.getTableWithAliasFor(
+                        subRelation as InternalQueryNode.Relation
+                    )
+                resolveInternalQueryTree(
+                    subRelation,
+                    variables,
+                    whereCondition.getForRelationship(
+                        subRelation.graphQLFieldName,
+                        outerTable,
+                        innerTable
+                    )
+                )
             }
 
-        val subSelects = relations.map { subRelation ->
-            val innerTable = getTableWithAlias(subRelation as InternalQueryNode.Relation)
-            resolveInternalQueryTree(
-                subRelation, whereCondition.getForRelationship(subRelation.graphQLFieldName, outerTable, innerTable)
-            )
-        }
+        val (paginationArgument, otherArguments) =
+            relation.arguments.partition { it.name == ByosConstants.LIMIT }
+        val (orderByArgument, otherArguments2) = otherArguments.partition { it.name == ByosConstants.ORDER_BY }
+        val (afterArgument, whereArguments) = otherArguments2.partition { it.name == "after" }
+        val (whereArgument, filterArguments) = whereArguments.partition { it.name == ByosConstants.WHERE }
 
-        val (paginationArgument, otherArguments) = relation.arguments.partition { it.name == "first" }
-        val (orderByArgument, otherArguments2) = otherArguments.partition { it.name == "orderBy" }
-        val (afterArgument, filterArguments) = otherArguments2.partition { it.name == "after" }
-
-        val limitValue = (paginationArgument.firstOrNull()?.value as IntValue?)?.value
+        //val limitValue = (paginationArgument.firstOrNull()?.value as IntValue?)?.value
+        val limitValue = ConditionFactory.extractIntValue(paginationArgument.firstOrNull()?.value, variables)?.value
 
         val providedOrderCriteria =
             (orderByArgument.firstOrNull()?.value as ObjectValue?)?.objectFields?.associate {
@@ -160,42 +273,53 @@ class QueryTranspiler(
         val orderByFieldsWithDirection = orderByFields
             .map {
                 when (providedOrderCriteria[it]) {
-                    "DESC" -> it.desc()
+                    ByosConstants.ORDER_BY_DESCENDING -> it.desc()
                     else -> it.asc()
                 }
             }
-        val cursor = DSL.jsonObject(*orderByFields.toTypedArray()).cast(String::class.java).`as`("cursor")
+        val cursor = DSL.jsonObject(*orderByFields.toTypedArray()).cast(String::class.java).`as`(ByosConstants.CURSOR)
 
         val afterCondition = afterArgument
             .firstOrNull()
             ?.let { whereCondition.getForAfterArgument(it, orderByFieldsWithDirection, outerTable) }
             ?: DSL.noCondition()
 
-        val argumentConditions = filterArguments.map { whereCondition.getForArgument(it, outerTable) }
+        val where = whereArguments.map { whereCondition.getForWhere(it, variables, outerTable)}
+
+        val argumentConditions =
+            filterArguments.map { whereCondition.getForArgument(it, outerTable) }
 
         val cursorRequested = relation.connectionInfo?.cursorGraphQLAliases?.isNotEmpty() ?: false
         val endCursorRequested = relation.connectionInfo?.pageInfos?.flatMap { it.endCursorGraphQlAliases }?.isNotEmpty() ?: false
         val hasNextPageRequested = relation.connectionInfo?.pageInfos?.flatMap { it.hasNextPageGraphQlAliases }?.isNotEmpty() ?: false
 
         val cte =
-            DSL.name("cte").`as`(
-                DSL.select(attributeNames)
-                    .select(subSelects)
-                    .apply { if (cursorRequested || endCursorRequested) select(cursor) }
-                    .apply { if (hasNextPageRequested) select(DSL.count().over().`as`("count_after_cursor")) }
-                    .from(outerTable)
-                    .where(argumentConditions)
-                    .and(joinCondition)
-                    .and(afterCondition)
-                    .orderBy(orderByFieldsWithDirection)
-                    .apply { if (limitValue != null) limit(limitValue) }
-            )
+            DSL.name("cte")
+                .`as`(
+                    DSL.select(attributeNames)
+                        .select(subSelects)
+                        .apply {
+                            if (cursorRequested || endCursorRequested)
+                                select(cursor)
+                        }
+                        .apply {
+                            if (hasNextPageRequested)
+                                select(
+                                    DSL.count()
+                                        .over()
+                                        .`as`("count_after_cursor")
+                                )
+                        }
+                        .from(outerTable)
+                        .where(where)
+                        .and(joinCondition)
+                        .and(afterCondition)
+                        .orderBy(orderByFieldsWithDirection)
+                        .apply { if (limitValue != null) limit(limitValue) }
+                )
 
         val totalCountSubquery =
-            DSL.selectCount()
-                .from(outerTable)
-                .where(argumentConditions)
-                .and(joinCondition)
+            DSL.selectCount().from(outerTable).where(where).and(joinCondition)
 
         val endCursorSubquery =
             DSL.select(DSL.lastValue(DSL.field(cursor.name)).over())
@@ -203,76 +327,129 @@ class QueryTranspiler(
                 .limit(1)
 
         return DSL.field(
-            DSL.with(cte).select(
-                when {
-                    relation.connectionInfo != null -> {
-                        DSL.jsonObject(
-                            DSL.key(relation.connectionInfo.edgesGraphQLAlias).value(
-                                DSL.coalesce(
-                                    DSL.jsonArrayAgg(
-                                        DSL.jsonObject(
-                                            DSL.key(relation.connectionInfo.nodeGraphQLAlias).value(
+            DSL.with(cte)
+                .select(
+                    when {
+                        relation.connectionInfo != null -> {
+                            DSL.jsonObject(
+                                DSL.key(
+                                    relation.connectionInfo
+                                        .edgesGraphQLAlias
+                                )
+                                    .value(
+                                        DSL.coalesce(
+                                            DSL.jsonArrayAgg(
                                                 DSL.jsonObject(
-                                                    *attributeNames.toTypedArray(),
-                                                    *subSelects.toTypedArray()
+                                                    DSL.key(
+                                                        relation.connectionInfo
+                                                            .nodeGraphQLAlias
+                                                    )
+                                                        .value(
+                                                            DSL.jsonObject(
+                                                                *attributeNames
+                                                                    .toTypedArray(),
+                                                                *subSelects
+                                                                    .toTypedArray()
+                                                            )
+                                                        ),
+                                                    *relation.connectionInfo
+                                                        .cursorGraphQLAliases
+                                                        .map {
+                                                            DSL.key(
+                                                                it
+                                                            )
+                                                                .value(
+                                                                    DSL.field(
+                                                                        cursor.name
+                                                                    )
+                                                                )
+                                                        }
+                                                        .toTypedArray()
                                                 )
                                             ),
-                                            *relation.connectionInfo.cursorGraphQLAliases.map {
-                                                DSL.key(it).value(DSL.field(cursor.name))
-                                            }.toTypedArray()
+                                            DSL.jsonArray()
                                         )
                                     ),
-                                    DSL.jsonArray()
-                                )
-
-                            ),
-                            *relation.connectionInfo.totalCountGraphQLAliases.map {
-                                DSL.key(it).value(totalCountSubquery)
-                            }.toTypedArray(),
-                            *relation.connectionInfo.pageInfos.map { pageInfo ->
-                                DSL.key(pageInfo.graphQLAlias).value(
-                                    DSL.jsonObject(
-                                        *pageInfo.hasNextPageGraphQlAliases.map {
-                                            DSL.key(it).value(
-                                                when (limitValue) {
-                                                    null -> false
-                                                    BigInteger.ZERO -> true
-                                                    else -> DSL.max(DSL.field("count_after_cursor")).greaterThan(limitValue)
-                                                }
+                                *relation.connectionInfo
+                                    .totalCountGraphQLAliases
+                                    .map {
+                                        DSL.key(it)
+                                            .value(
+                                                totalCountSubquery
                                             )
-                                        }.toTypedArray(),
-                                        *pageInfo.endCursorGraphQlAliases.map {
-                                            DSL.key(it).value(endCursorSubquery)
-                                        }.toTypedArray()
+                                    }
+                                    .toTypedArray(),
+                                *relation.connectionInfo
+                                    .pageInfos
+                                    .map { pageInfo ->
+                                        DSL.key(pageInfo.graphQLAlias)
+                                            .value(
+                                                DSL.jsonObject(
+                                                    *pageInfo.hasNextPageGraphQlAliases
+                                                        .map {
+                                                            DSL.key(
+                                                                it
+                                                            )
+                                                                .value(
+                                                                    when (limitValue
+                                                                    ) {
+                                                                        null ->
+                                                                            false
+                                                                        BigInteger
+                                                                            .ZERO ->
+                                                                            true
+                                                                        else ->
+                                                                            DSL.max(
+                                                                                DSL.field(
+                                                                                    "count_after_cursor"
+                                                                                )
+                                                                            )
+                                                                                .greaterThan(
+                                                                                    limitValue
+                                                                                )
+                                                                    }
+                                                                )
+                                                        }
+                                                        .toTypedArray(),
+                                                    *pageInfo.endCursorGraphQlAliases
+                                                        .map {
+                                                            DSL.key(
+                                                                it
+                                                            )
+                                                                .value(
+                                                                    endCursorSubquery
+                                                                )
+                                                        }
+                                                        .toTypedArray()
+                                                )
+                                            )
+                                    }
+                                    .toTypedArray()
+                            )
+                        }
+                        relation.fieldTypeInfo.isList -> {
+                            DSL.coalesce(
+                                DSL.jsonArrayAgg(
+                                    DSL.jsonObject(
+                                        *attributeNames
+                                            .toTypedArray(),
+                                        *subSelects.toTypedArray()
                                     )
-                                )
-                            }.toTypedArray()
-                        )
+                                ),
+                                DSL.jsonArray()
+                            )
+                        }
+                        else -> {
+                            DSL.jsonObject(
+                                *attributeNames.toTypedArray(),
+                                *subSelects.toTypedArray()
+                            )
+                        }
                     }
-
-                    relation.fieldTypeInfo.isList -> {
-                        DSL.coalesce(
-                            DSL.jsonArrayAgg(
-                                DSL.jsonObject(
-                                    *attributeNames.toTypedArray(),
-                                    *subSelects.toTypedArray()
-                                )
-                            ),
-                            DSL.jsonArray()
-                        )
-                    }
-
-                    else -> {
-                        DSL.jsonObject(
-                            *attributeNames.toTypedArray(),
-                            *subSelects.toTypedArray()
-                        )
-                    }
-                }
-            ).from(cte)
-        ).`as`(relation.graphQLAlias)
+                )
+                .from(cte)
+        )
+            .`as`(relation.graphQLAlias)
     }
 }
 
-private fun getTableWithAlias(relation: InternalQueryNode.Relation) =
-    Public.PUBLIC.getTable(relation.fieldTypeInfo.relationName)?.`as`(relation.sqlAlias) ?: error("Table ${relation.fieldTypeInfo.relationName} not found")

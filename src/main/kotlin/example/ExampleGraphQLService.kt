@@ -9,6 +9,7 @@ import com.fasterxml.jackson.databind.ObjectMapper
 import graphql.GraphQL
 import graphql.introspection.IntrospectionQuery
 import graphql.language.Document
+import graphql.language.FragmentDefinition
 import graphql.language.OperationDefinition
 import graphql.parser.Parser
 import graphql.schema.idl.RuntimeWiring
@@ -29,7 +30,8 @@ class GraphQLService {
         private val graphQL = GraphQL.newGraphQL(schema).build()
         private val objectMapper = ObjectMapper()
         private val parser = Parser()
-        private val queryTranspiler = QueryTranspiler(WhereCondition(::getConditionForRelationship), schema)
+        private val tableAndConditionService = HardcodedTableAndConditionService()
+        private val queryTranspiler = QueryTranspiler(WhereCondition(tableAndConditionService), schema, tableAndConditionService)
     }
 
     fun executeGraphQLQuery(requestInfo: RequestInfo): String {
@@ -49,12 +51,13 @@ class GraphQLService {
             val result = graphQL.execute(IntrospectionQuery.INTROSPECTION_QUERY)
             return objectMapper.writeValueAsString(result.toSpecification())
         }
+        val fragments = document.definitions.filterIsInstance<FragmentDefinition>()
 
-        val queryTrees = queryTranspiler.buildInternalQueryTrees(ast)
+        val queryTrees = queryTranspiler.buildInternalQueryTrees(ast, fragments)
         val results =
             queryTrees.map { tree ->
                 executeJooqQuery { ctx ->
-                    ctx.select(queryTranspiler.resolveInternalQueryTree(tree)).fetch()
+                    ctx.select(queryTranspiler.resolveInternalQueryTree(tree, requestInfo.variables)).fetch()
                 }
             }
         results.map(::println)

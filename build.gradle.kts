@@ -10,6 +10,7 @@ plugins {
     id("org.springframework.boot") version "3.0.4"
     id("io.spring.dependency-management") version "1.1.0"
     kotlin("plugin.spring") version "1.7.22"
+    `maven-publish`
 }
 
 java.sourceCompatibility = JavaVersion.VERSION_17
@@ -32,6 +33,19 @@ dependencies {
     testImplementation("org.springframework.boot:spring-boot-starter-test")
     testImplementation("org.springframework:spring-webflux")
     testImplementation("org.springframework.graphql:spring-graphql-test")
+}
+
+//https://docs.gradle.org/current/userguide/publishing_maven.html
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            groupId = "com.inventage.byos"
+            artifactId = "byos"
+            version = "1.0.0-SNAPSHOT"
+
+            from(components["java"])
+        }
+    }
 }
 
 tasks.test {

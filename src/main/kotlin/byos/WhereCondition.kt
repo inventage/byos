@@ -1,5 +1,6 @@
 package byos
 
+import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import graphql.language.Argument
 import graphql.language.ArrayValue
@@ -8,6 +9,7 @@ import graphql.language.EnumValue
 import graphql.language.FloatValue
 import graphql.language.IntValue
 import graphql.language.NullValue
+import graphql.language.ObjectValue
 import graphql.language.StringValue
 import graphql.language.Value
 import org.jooq.Condition
@@ -18,11 +20,12 @@ import org.jooq.SortOrder
 import org.jooq.Table
 import org.jooq.impl.DSL
 
-class WhereCondition(private val getConditionForRelationship: (String, Table<*>, Table<*>) -> Condition?) {
+class WhereCondition(private val tableAndConditionService: TableAndConditionService) {
     fun getForRelationship(relationshipName: String, left: Table<*>, right: Table<*>): Condition =
-        getConditionForRelationship(relationshipName, left, right)
-            ?: error("No relationship called $relationshipName found for tables $left and $right")
-
+        tableAndConditionService.getConditionFor(relationshipName, left, right)
+            ?: error(
+                "No relationship called $relationshipName found for tables $left and $right"
+            )
 
     fun getForArgument(argument: Argument, table: Table<*>): Condition {
         val field = table.field(argument.name) as Field<Any>?
@@ -35,6 +38,10 @@ class WhereCondition(private val getConditionForRelationship: (String, Table<*>,
         }
     }
 
+    fun getForWhere(argument: Argument, variables: Map<String, JsonNode> , table: Table<*>): Condition {
+        return ConditionFactory.getWhereCondition(argument, variables, table)
+    }
+
     private fun extractValue(value: Value<Value<*>>): Any? =
         when (value) {
             is IntValue -> value.value
@@ -44,6 +51,7 @@ class WhereCondition(private val getConditionForRelationship: (String, Table<*>,
             is EnumValue -> value.name
             is NullValue -> null
             is ArrayValue -> value.values.map { extractValue(it) }
+            is ObjectValue -> value.objectFields
             else -> error("Unsupported argument type ${value.javaClass}")
         }
 

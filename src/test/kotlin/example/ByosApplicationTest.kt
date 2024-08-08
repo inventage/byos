@@ -222,13 +222,7 @@ internal class ByosApplicationTest {
                         "name": "Action",
                         "parent_category": null,
                         "subcategories": {
-                          "edges": [
-                            {
-                              "node": {
-                                "name": "Sci-Fi"
-                              }
-                            }
-                          ]
+                          "edges": []
                         }
                       }
                     },
@@ -237,35 +231,16 @@ internal class ByosApplicationTest {
                         "name": "Animation",
                         "parent_category": null,
                         "subcategories": {
-                          "edges": [
-                            {
-                              "node": {
-                                "name": "Children"
-                              }
-                            },
-                            {
-                              "node": {
-                                "name": "Classics"
-                              }
-                            }
-                          ]
+                          "edges": []
                         }
                       }
                     },
                     {
                       "node": {
                         "name": "Children",
-                        "parent_category": {
-                          "name": "Animation"
-                        },
+                        "parent_category": null,
                         "subcategories": {
-                          "edges": [
-                            {
-                              "node": {
-                                "name": "Family"
-                              }
-                            }
-                          ]
+                          "edges": []
                         }
                       }
                     }
