@@ -1,0 +1,20 @@
+<configuration>
+    <jdbc>
+        <driver>org.postgresql.Driver</driver>
+        <url>${DB_URL}</url>
+        <user>${DB_USER}</user>
+        <password>${DB_PASSWORD}</password>
+    </jdbc>
+    <generator>
+        <database>
+            <name>org.jooq.meta.postgres.PostgresDatabase</name>
+            <includes>.*</includes>
+            <excludes></excludes>
+            <inputSchema>public</inputSchema>
+        </database>
+        <target>
+            <packageName>db.jooq.generated</packageName>
+            <directory>src/generated/java</directory>
+        </target>
+    </generator>
+</configuration>
