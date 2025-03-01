@@ -16,11 +16,25 @@ This repository provides a practical example of how to bring your own GraphQL sc
 
 The number of results can be restricted by the `limit` argument.
 
+```graphql
+query { filmByIds(limit: 3) { edges { node { film_id title } } } }
+```
+
 ### where
+
+The result can be restricted to a condition by the `where` argument.
+
+```graphql
+query { filmByIds(where: {film_id: {_in: [1,2]}}) { edges { node { film_id title } } } }
+```
 
 ### order
 
 The order of the result can be defined by the `orderBy` argument.
+
+```graphql
+query { allFilms(orderBy: {title: asc}) { edges { node { film_id title } } } }
+```
 
 ## Project structure
 
