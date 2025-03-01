@@ -12,6 +12,8 @@ import java.math.BigInteger;
 import java.util.Map;
 import java.util.stream.Collectors;
 
+import static byos.ByosConstants.*;
+
 // https://www.graphql-java.com/documentation/data-mapping#scalars
 public class ConditionFactory {
 
@@ -40,23 +42,27 @@ public class ConditionFactory {
         if (value instanceof ObjectValue) {
             return (ObjectValue) value;
         }
+        if (value instanceof IntValue) {
+            final ObjectValue build = ObjectValue.newObjectValue().objectField(ObjectField.newObjectField().name("value").value(value).build()).build();
+            return build;
+        }
         throw new IllegalArgumentException("Value of whereArgument must be an object");
     }
 
     private static Condition getCondition(ObjectField objectField, Map<String, JsonNode> variables, Table<?> table) {
         final String name = objectField.getName();
         switch (name) {
-            case "_and": {
+            case CONDITION_AND: {
                 return DSL.and(asArrayValue(objectField.getValue()).getValues().stream()
                         .map(objectValue -> getCondition((ObjectValue) objectValue, variables, table))
                         .collect(Collectors.toSet()));
             }
-            case "_or": {
+            case CONDITION_OR: {
                 return DSL.or(asArrayValue(objectField.getValue()).getValues().stream()
                         .map(objectValue -> getCondition((ObjectValue) objectValue, variables, table))
                         .collect(Collectors.toSet()));
             }
-            case "_not": {
+            case CONDITION_NOT: {
                 return DSL.not(getCondition((ObjectValue) objectField.getValue(), variables, table));
             }
             default: {

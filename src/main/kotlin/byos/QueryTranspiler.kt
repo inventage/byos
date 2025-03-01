@@ -1,5 +1,8 @@
 package byos
 
+import byos.ByosConstants.AFTER
+import byos.ByosConstants.ORDER_BY
+import byos.ByosConstants.WHERE
 import com.fasterxml.jackson.databind.JsonNode
 import graphql.language.*
 import graphql.schema.GraphQLSchema
@@ -255,9 +258,9 @@ class QueryTranspiler(
 
         val (paginationArgument, otherArguments) =
             relation.arguments.partition { it.name == ByosConstants.LIMIT }
-        val (orderByArgument, otherArguments2) = otherArguments.partition { it.name == ByosConstants.ORDER_BY }
-        val (afterArgument, whereArguments) = otherArguments2.partition { it.name == "after" }
-        val (whereArgument, filterArguments) = whereArguments.partition { it.name == ByosConstants.WHERE }
+        val (orderByArgument, otherArguments2) = otherArguments.partition { it.name == ORDER_BY }
+        val (afterArgument, whereArguments) = otherArguments2.partition { it.name == AFTER }
+        val (whereArgument, filterArguments) = whereArguments.partition { it.name == WHERE }
 
         //val limitValue = (paginationArgument.firstOrNull()?.value as IntValue?)?.value
         val limitValue = ConditionFactory.extractIntValue(paginationArgument.firstOrNull()?.value, variables)?.value

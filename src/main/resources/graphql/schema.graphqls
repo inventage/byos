@@ -1,12 +1,12 @@
 type Query {
-    allFilms(first: Int, after: String, orderBy: OrderFilmsBy): FilmConnection!
-    filmById(film_id: ID!): Film
-    filmByIds(first: Int, after: String, film_id: [ID!]!): FilmConnection!
+    allFilms(limit: Int, after: String, orderBy: FilmOrder): FilmConnection!
+    filmById(where: FilmWhere): Film
+    filmByIds(limit: Int, after: String, where: FilmWhere): FilmConnection!
     allActors: [Actor!]!
-    actorById(actor_id: ID!): Actor
-    allCategories(first: Int, after: String): CategoryConnection!
-    allStores(first: Int, after: String): StoreConnection!
-    filmsByYear(first: Int, after: String, release_year: Int): FilmConnection!
+    actorById(where: ActorWhere): Actor
+    allCategories(limit: Int, after: String): CategoryConnection!
+    allStores(limit: Int, after: String): StoreConnection!
+    filmsByYear(limit: Int, after: String, release_year: Int): FilmConnection!
 }
 
 enum SortDirection {
@@ -30,10 +30,24 @@ type Film {
     original_language: Language
 }
 
+input FilmWhere {
+    film_id: Int_comparison_exp
+    title: String_comparison_exp
+    _and: [FilmWhere!]
+    _not: FilmWhere
+    _or: [FilmWhere!]
+}
+
 input OrderFilmsBy {
     film_id: SortDirection
     title: SortDirection
     release_year: SortDirection
+}
+
+input FilmOrder {
+    film_id: orderByDirection
+    title: orderByDirection
+    release_year: orderByDirection
 }
 
 type FilmConnection {
@@ -51,13 +65,22 @@ type Actor {
     actor_id: ID!
     first_name: String!
     last_name: String!
-    films(first: Int, after: String, orderBy: OrderFilmsBy, release_year: Int): FilmConnection!
+    films(limit: Int, after: String, orderBy: OrderFilmsBy, release_year: Int): FilmConnection!
+}
+
+input ActorWhere {
+    actor_id: Int_comparison_exp
+    first_name: String_comparison_exp
+    last_name: String_comparison_exp
+    _and: [ActorWhere!]
+    _not: ActorWhere
+    _or: [ActorWhere!]
 }
 
 type Store {
     store_id: ID!
-    films(first: Int, after: String, orderBy: OrderFilmsBy): FilmConnection!
-    inventories(first: Int, after: String): InventoryConnection!
+    films(limit: Int, after: String, orderBy: OrderFilmsBy): FilmConnection!
+    inventories(limit: Int, after: String): InventoryConnection!
 }
 
 type StoreConnection {
@@ -111,4 +134,36 @@ type CategoryConnection {
 type CategoryEdge {
     node: Category!
     cursor: String!
+}
+
+input Int_comparison_exp {
+    _eq: Int
+    _gt: Int
+    _gte: Int
+    _lt: Int
+    _lte: Int
+    _neq: Int
+    _in: [Int]
+}
+
+input String_comparison_exp {
+    _eq: String
+    _gt: String
+    _gte: String
+    _ilike: String
+    _in: [String]
+    _iregex: String
+    _is_null: [Boolean]
+    _like: String
+    _lt: String
+    _lte: String
+    _neq: String
+    _nin: [String]
+    _regex: String
+}
+
+"Column ordering"
+enum orderByDirection {
+    asc
+    desc
 }

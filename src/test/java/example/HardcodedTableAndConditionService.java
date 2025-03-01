@@ -2,6 +2,7 @@ package example;
 
 import byos.InternalQueryNode;
 import byos.TableAndConditionService;
+import db.jooq.generated.Public;
 import org.jetbrains.annotations.NotNull;
 import org.jetbrains.annotations.Nullable;
 import org.jooq.Condition;
@@ -12,7 +13,7 @@ public class HardcodedTableAndConditionService implements TableAndConditionServi
     @NotNull
     @Override
     public Table<? extends Record> getTableWithAliasFor(@NotNull InternalQueryNode.Relation relation) {
-        return null;
+        return Public.PUBLIC.getTable(relation.getFieldTypeInfo().getRelationName().toLowerCase());
     }
 
     @Nullable

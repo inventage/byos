@@ -1,19 +1,21 @@
 package byos;
 
+import static byos.ByosConstants.*;
+
 public enum StringComparisonOperator {
-    _eq("_eq"),
-    _neq("_neq"),
-    _lt("_lt"),
-    _lte("_lte"),
-    _gt("_gt"),
-    _gte("_gte"),
-    _like("_like"),
-    _ilike("_illike"),
-    _regex("_regex"),
-    _iregex("_iregex"),
-    _in("_in"),
-    _nin("_nin"),
-    _is_null("_is_null");
+    _eq(COMPARISON_EQ),
+    _neq(COMPARISON_NEQ),
+    _lt(COMPARISON_LT),
+    _lte(COMPARISON_LTE),
+    _gt(COMPARISON_GT),
+    _gte(COMPARISON_GTE),
+    _like(COMPARISON_LIKE),
+    _ilike(COMPARISON_ILLIKE),
+    _regex(COMPARISON_REGEX),
+    _iregex(COMPARISON_IREGEX),
+    _in(COMPARISON_IN),
+    _nin(COMPARISON_NIN),
+    _is_null(COMPARISON_IS_NULL);
 
     public final String operatorName;
 

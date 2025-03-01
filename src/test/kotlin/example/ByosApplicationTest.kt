@@ -13,7 +13,7 @@ internal class ByosApplicationTest {
     fun simpleQuery() {
         val query = """
             query {
-              allFilms(first: 3) {
+              allFilms(limit: 3) {
                 edges {
                   node {
                     film_id
@@ -62,7 +62,7 @@ internal class ByosApplicationTest {
     fun simpleQueryWithMoreDepth() {
         val query = """
             query {
-              allFilms(first: 2) {
+              allFilms(limit: 2) {
                 edges {
                   node {
                     title
@@ -147,7 +147,7 @@ internal class ByosApplicationTest {
     fun queryReturningObject() {
         val query = """
             query {
-              filmById(film_id: 1) {
+              filmById(where: {film_id: {_eq: 1}}) {
                 title
               }
             }
@@ -167,10 +167,40 @@ internal class ByosApplicationTest {
     }
 
     @Test
+    fun queryReturningObjects() {
+        val query = """
+            query {
+              filmByIds(where: {film_id: {_in: [1,2]}}) {
+                edges {
+                  node {
+                    title
+                  }
+                }
+              }
+            }
+
+            """.trimIndent()
+        val expectedResult = """
+            {
+              "data": {
+                "filmByIds": {
+                    "edges": [
+                        {"node":{"title": "ACADEMY DINOSAUR"}},
+                        {"node":{"title": "ACE GOLDFINGER"}}
+                    ]
+                }
+              }
+            }
+
+            """.trimIndent()
+        assertJsonEquals(expectedResult, graphQLService.executeGraphQLQuery(query))
+    }
+
+    @Test
     fun queryReturningNull() {
         val query = """
             query {
-              filmById(film_id: 1) {
+              filmById(where: {film_id: {_eq: 1}}) {
                 original_language {
                   name
                 }
@@ -193,7 +223,7 @@ internal class ByosApplicationTest {
     fun queryWithSelfRelation() {
         val query = """
             {
-              allCategories(first: 3) {
+              allCategories(limit: 3) {
                 edges {
                   node {
                     name
@@ -256,7 +286,7 @@ internal class ByosApplicationTest {
     fun queryWithAlias() {
         val query = """
             query {
-              movie2: filmById(film_id: 2) {
+              movie2: filmById(where: {film_id: {_eq: 2}}) {
                 id: film_id
                 film_id
                 star: actors {
@@ -296,10 +326,10 @@ internal class ByosApplicationTest {
     fun multipleQueries() {
         val query = """
             {
-              a1: actorById(actor_id: 1) {
+              a1: actorById(where: {actor_id: {_eq: 1}}) {
                 last_name
               }
-              a2: actorById(actor_id: 2) {
+              a2: actorById(where: {actor_id: {_eq: 2}}) {
                 last_name
               }
             }
@@ -323,7 +353,7 @@ internal class ByosApplicationTest {
     fun queryWithArgument() {
         val query = """
             query {
-              actorById(actor_id: 1) {
+              actorById(where: {actor_id: {_eq: 1}}) {
                 actor_id
                 last_name
               }
@@ -351,14 +381,14 @@ internal class ByosApplicationTest {
                 edges {
                   node {
                     store_id
-                    films(first: 2) {
+                    films(limit: 2) {
                       edges {
                         node {
                           film_id
                         }
                       }
                     }
-                    inventories(first: 2) {
+                    inventories(limit: 2) {
                       edges {
                         node {
                           film {
@@ -463,13 +493,13 @@ internal class ByosApplicationTest {
     fun queryWithFirstLimit() {
         val query = """
             query {
-              allFilms(first: 1) {
+              allFilms(limit: 1) {
                 edges {
                   node {
                     film_id
                     actors {
                     actor_id
-                      films(release_year: 2006, first: 1) {
+                      films(release_year: 2006, limit: 1) {
                         edges {
                           node {
                             film_id
@@ -630,7 +660,7 @@ internal class ByosApplicationTest {
     fun queryWithCustomOrder() {
         val query = """
             {
-              allFilms(first: 3, orderBy: {title: ASC}) {
+              allFilms(limit: 3, orderBy: {title: asc}) {
                 edges {
                   node {
                     film_id
@@ -679,7 +709,7 @@ internal class ByosApplicationTest {
     fun orderByMultipleFieldsAndUseCursor() {
         val query = """
             {
-              allFilms (orderBy: {release_year: ASC, title: DESC, film_id: ASC}, after: "{\"release_year\" : 2006, \"title\" : \"AFFAIR PREJUDICE\", \"film_id\" : 4}") {
+              allFilms (orderBy: {release_year: asc, title: desc, film_id: asc}, after: "{\"release_year\" : 2006, \"title\" : \"AFFAIR PREJUDICE\", \"film_id\" : 4}") {
                 edges {
                   node {
                     title

@@ -1,5 +1,10 @@
 package byos
 
+import byos.ByosConstants.GRAPHQL_OPERATION_NAME
+import byos.ByosConstants.GRAPHQL_OPERATION_QUERY
+import byos.ByosConstants.GRAPHQL_RESULT_DATA
+import byos.ByosConstants.GRAPHQL_RESULT_ERRORS
+import byos.ByosConstants.GRAPHQL_VARIABLES
 import com.fasterxml.jackson.databind.JsonNode
 import com.fasterxml.jackson.databind.ObjectMapper
 import graphql.GraphQL
@@ -42,19 +47,19 @@ class GraphQLService(val schema: GraphQLSchema, private val tableAndConditionSer
     fun extractRequestInfoFromBody(requestBody: String): RequestInfo? {
         val jsonNode = jsonObjectMapper.readTree(requestBody)
 
-        val queries = jsonNode["query"]?.textValue()
+        val queries = jsonNode[GRAPHQL_OPERATION_QUERY]?.textValue()
         if (queries.isNullOrBlank()) {
             return null
         }
         val document = graphqlParser.parseDocument(queries)
 
         val variables =
-                jsonNode["variables"]?.fields()?.asSequence()?.associate { (key, value) ->
+                jsonNode[GRAPHQL_VARIABLES]?.fields()?.asSequence()?.associate { (key, value) ->
                     key to value
                 }
                         ?: emptyMap()
 
-        val operationName = jsonNode["operationName"]?.textValue()
+        val operationName = jsonNode[GRAPHQL_OPERATION_NAME]?.textValue()
 
         return RequestInfo(document, operationName, variables)
     }
@@ -65,7 +70,7 @@ class GraphQLService(val schema: GraphQLSchema, private val tableAndConditionSer
         val errors = schemaValidator.validateDocument(schema, document, locale)
         if (errors.isNotEmpty()) {
             return jsonObjectMapper.writeValueAsString(
-                    mapOf("data" to null, "errors" to errors.map { it.toSpecification() })
+                    mapOf(GRAPHQL_RESULT_DATA to null, GRAPHQL_RESULT_ERRORS to errors.map { it.toSpecification() })
             )
         }
 
@@ -82,7 +87,7 @@ class GraphQLService(val schema: GraphQLSchema, private val tableAndConditionSer
 
         val queryTrees = queryTranspiler.buildInternalQueryTrees(ast, fragments)
         val results =
-                queryTrees.map { tree -> {}
+                queryTrees.map { tree -> run {}
                     jooq.select(queryTranspiler.resolveInternalQueryTree(tree, requestInfo.variables)).fetch()
                 }
 

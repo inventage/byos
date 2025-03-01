@@ -12,6 +12,16 @@ This repository provides a practical example of how to bring your own GraphQL sc
 - jOOQ is used to ensure correctness of the SQL configuration.
 - Supports filter arguments, pagination and sorting.
 
+### limit
+
+The number of results can be restricted by the `limit` argument.
+
+### where
+
+### order
+
+The order of the result can be defined by the `orderBy` argument.
+
 ## Project structure
 
 - `src/main/kotlin/byos` contains the BYOS implementation.
