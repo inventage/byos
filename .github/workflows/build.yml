@@ -13,6 +13,21 @@ jobs:
     permissions:
       contents: read
       packages: write
+  test:
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:15
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: sakila
+        ports:
+          - 5432:5432
+        options: >-
+          --health-interval=10s
+          --health-timeout=5s
+          --health-retries=5
 
     steps:
       - uses: actions/checkout@v4
@@ -23,8 +38,23 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
+      - name: Install PostgreSQL Client
+        run: sudo apt-get update && sudo apt-get install -y postgresql-client
+
+      - name: Wait for PostgreSQL to be Fully Ready
+        run: |
+          until PGPASSWORD=postgres psql -h localhost -U postgres -d sakila -c "SELECT 1" > /dev/null 2>&1; do
+            echo "Waiting for database to be fully ready..."
+            sleep 2
+          done
+          echo "Database is fully ready!"
+
+      - name: Load Data into PostgreSQL
+        run: |
+          PGPASSWORD=postgres psql -h localhost -U postgres -d sakila -f src/test/resources/full_dump.sql
+
       - name: Build with Gradle
-        run: ./gradlew build -x test
+        run: ./gradlew build
 
       - name: Replace "SNAPSHOT" within POM version with date, build number and commit hash
         run: |
