@@ -48,9 +48,6 @@ jobs:
           java-version: "17"
           distribution: "temurin"
 
-
-
-
       - name: Install PostgreSQL Client
         run: sudo apt-get update && sudo apt-get install -y postgresql-client
 
@@ -74,37 +71,38 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
-    - uses: actions/checkout@v4
+      - uses: actions/checkout@v4
 
-    - name: Set up JDK 17
-      uses: actions/setup-java@v4
-      with:
-        java-version: "17"
-        distribution: "temurin"
+      - name: Set up JDK 17
+        uses: actions/setup-java@v4
+        with:
+          java-version: "17"
+          distribution: "temurin"
 
 
-    - name: Replace "SNAPSHOT" within POM version with date, build number and commit hash
-      run: |
-        snapshot_version=$(grep "^version=" version.properties | cut -d'=' -f2)
-        echo "SNAPSHOT_VERSION=$snapshot_version" >> $GITHUB_ENV
 
-        date=$(date -u +%Y%m%d%H%M)
-        release_candidate_version=${major_minor_patch}${date}-${{ github.run_number }}-${GITHUB_SHA::7}
-        echo "RELEASE_CANDIDATE_VERSION=$release_candidate_version" >> $GITHUB_ENV
+      - name: Replace "SNAPSHOT" within POM version with date, build number and commit hash
+        run: |
+          snapshot_version=$(grep "^version=" version.properties | cut -d'=' -f2)
+          echo "SNAPSHOT_VERSION=$snapshot_version" >> $GITHUB_ENV
+          
+          date=$(date -u +%Y%m%d%H%M)
+          release_candidate_version=${major_minor_patch}${date}-${{ github.run_number }}-${GITHUB_SHA::7}
+          echo "RELEASE_CANDIDATE_VERSION=$release_candidate_version" >> $GITHUB_ENV
+          
+          sed -i "s/^version=.*/version=${release_candidate_version}/" version.properties
+          
+          echo "VERSION" version
 
-        sed -i "s/^version=.*/version=${release_candidate_version}/" version.properties
+      - name: Publish to Nexus Repository
+        run: ./gradlew publish -PbuildNumber=${{ github.run_number }} -PbuildRevision=${GITHUB_SHA} -Pversion=${RELEASE_CANDIDATE_VERSION}
+        env:
+          NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
+          NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
 
-        echo "VERSION" version
-
-    - name: Publish to Nexus Repository
-      run: ./gradlew publish -PbuildNumber=${{ github.run_number }} -PbuildRevision=${GITHUB_SHA} -Pversion=${RELEASE_CANDIDATE_VERSION}
-      env:
-        NEXUS_USERNAME: ${{ secrets.NEXUS_USERNAME }}
-        NEXUS_PASSWORD: ${{ secrets.NEXUS_PASSWORD }}
-
-    - name: Build summary
-      run: |
-        echo "### Build successful! :rocket:" >> $GITHUB_STEP_SUMMARY
-        echo "- Version \`$RELEASE_CANDIDATE_VERSION\`" >> $GITHUB_STEP_SUMMARY
+      - name: Build summary
+        run: |
+          echo "### Build successful! :rocket:" >> $GITHUB_STEP_SUMMARY
+          echo "- Version \`$RELEASE_CANDIDATE_VERSION\`" >> $GITHUB_STEP_SUMMARY
         
         
