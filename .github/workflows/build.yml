@@ -86,6 +86,10 @@ jobs:
           snapshot_version=$(grep "^version=" version.properties | cut -d'=' -f2)
           echo "SNAPSHOT_VERSION=$snapshot_version" >> $GITHUB_ENV
           
+          major_minor_patch=$(echo "${snapshot_version}" | sed "s/SNAPSHOT//g")     
+          
+          echo "MAJOR_MINOR_PATCH" "${major_minor_patch}"
+          
           date=$(date -u +%Y%m%d%H%M)
           release_candidate_version=${major_minor_patch}${date}-${{ github.run_number }}-${GITHUB_SHA::7}
           echo "RELEASE_CANDIDATE_VERSION=$release_candidate_version" >> $GITHUB_ENV
