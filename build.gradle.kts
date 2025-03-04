@@ -15,6 +15,10 @@ plugins {
 
 java.sourceCompatibility = JavaVersion.VERSION_17
 
+val projectVersion: String by lazy {
+    project.findProperty("version")?.toString() ?: "1.0.0"
+}
+
 repositories {
     mavenCentral()
 }
@@ -37,18 +41,48 @@ dependencies {
 }
 
 //https://docs.gradle.org/current/userguide/publishing_maven.html
-publishing {
-    publications {
-        create<MavenPublication>("maven") {
-            groupId = "com.inventage.byos"
-            artifactId = "byos"
-            version = "1.0.0-SNAPSHOT"
 
-            from(components["java"])
+
+sourceSets {
+    main {
+        java {
+            srcDir("src/main/java")
+        }
+        kotlin {
+            srcDir("src/main/kotlin")
+        }
+    }
+    test {
+        java {
+            srcDir("src/test/java-generated")
+            srcDir("src/test/java")
+        }
+        kotlin {
+            srcDir("src/test/kotlin")
         }
     }
 }
 
+publishing {
+    publications {
+        create<MavenPublication>("maven") {
+            groupId = "com.inventage.graphql"
+            artifactId = "byos"
+            version = projectVersion
+            from(components["java"])
+        }
+    }
+    repositories {
+        maven {
+            name = "Nexus"
+            url = uri("https://nexus3.inventage.com/repository/inventage-projectware-maven-staging/")
+            credentials {
+                username = System.getenv("NEXUS_USERNAME")
+                password = System.getenv("NEXUS_PASSWORD")
+            }
+        }
+    }
+}
 tasks.bootJar {
     enabled = false
 }
@@ -67,36 +101,36 @@ tasks.withType<KotlinCompile> {
 tasks.withType<Test> {
     useJUnitPlatform()
 }
-
-jooq {
-    version.set("3.17.6")
-    edition.set(JooqEdition.OSS)
-
-    configurations {
-        create("main") {
-            jooqConfiguration.apply {
-                logging = org.jooq.meta.jaxb.Logging.DEBUG
-
-                jdbc.apply {
-                    driver = "org.postgresql.Driver"
-                    url = "jdbc:postgresql://localhost:5432/sakila"
-                    user = "postgres"
-                    password = ""
-                }
-                generator.apply {
-                    name = "org.jooq.codegen.JavaGenerator"
-                    database.apply {
-                        name = "org.jooq.meta.postgres.PostgresDatabase"
-                        inputSchema = "public"
-                        includes = ".*"
-                        excludes = ""
-                    }
-                    target.apply {
-                        packageName = "db.jooq.generated"
-                        directory = "${project.projectDir}/src/generated/java/jooq"
-                    }
-                }
-            }
-        }
-    }
-}
+// TODO: Task only when...
+//jooq {
+//    version.set("3.17.6")
+//    edition.set(JooqEdition.OSS)
+//
+//    configurations {
+//        create("main") {
+//            jooqConfiguration.apply {
+//                logging = org.jooq.meta.jaxb.Logging.DEBUG
+//
+//                jdbc.apply {
+//                    driver = "org.postgresql.Driver"
+//                    url = "jdbc:postgresql://localhost:5432/sakila"
+//                    user = "postgres"
+//                    password = ""
+//                }
+//                generator.apply {
+//                    name = "org.jooq.codegen.JavaGenerator"
+//                    database.apply {
+//                        name = "org.jooq.meta.postgres.PostgresDatabase"
+//                        inputSchema = "public"
+//                        includes = ".*"
+//                        excludes = ""
+//                    }
+//                    target.apply {
+//                        packageName = "db.jooq.generated"
+//                        directory = "${project.projectDir}/src/test/java-generated"
+//                    }
+//                }
+//            }
+//        }
+//    }
+//}
