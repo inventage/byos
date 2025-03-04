@@ -39,10 +39,6 @@ jobs:
           POSTGRES_DB: sakila
         ports:
           - 5432:5432
-        options: >-
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=5
     steps:
       - uses: actions/checkout@v4
 
@@ -89,7 +85,7 @@ jobs:
 
     - name: Replace "SNAPSHOT" within POM version with date, build number and commit hash
       run: |
-        snapshot_version=$(grep "^snapshot_version=" version.properties | cut -d'=' -f2)
+        snapshot_version=$(grep "^version=" version.properties | cut -d'=' -f2)
         echo "SNAPSHOT_VERSION=$snapshot_version" >> $GITHUB_ENV
 
         date=$(date -u +%Y%m%d%H%M)
