@@ -84,6 +84,12 @@ publishing {
     }
 }
 
+tasks.jar {
+    enabled = true
+    // Remove `plain` postfix from jar file name
+    archiveClassifier.set("")
+}
+
 tasks.bootJar {
     enabled = false
 }
