@@ -25,7 +25,7 @@ import java.util.stream.Collectors
 @Component
 class GraphQLService {
     companion object {
-        private val schemaFile = File("src/main/resources/graphql/schema.graphqls")
+        private val schemaFile = File("src/integration-test/resources/graphql/schema.graphqls")
         private val schema = SchemaGenerator().makeExecutableSchema(SchemaParser().parse(schemaFile), RuntimeWiring.newRuntimeWiring().build())
         private val graphQL = GraphQL.newGraphQL(schema).build()
         private val objectMapper = ObjectMapper()

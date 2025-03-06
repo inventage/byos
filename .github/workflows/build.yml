@@ -24,7 +24,7 @@ jobs:
           distribution: "temurin"
 
       - name: Build with Gradle
-        run: ./gradlew build -x test
+        run: ./gradlew build
 
 
   test:
@@ -61,10 +61,10 @@ jobs:
 
       - name: Load Data into PostgreSQL
         run: |
-          PGPASSWORD=postgres psql -h localhost -U postgres -d sakila -f src/test/resources/full_dump.sql
+          PGPASSWORD=postgres psql -h localhost -U postgres -d sakila -f src/integration-test/resources/full_dump.sql
 
       - name: Test with Gradle
-        run: ./gradlew test
+        run: ./gradlew integrationTest
 
   deploy:
     needs: test
