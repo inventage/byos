@@ -53,6 +53,12 @@ object ByosConstants {
     const val ORDER_BY = "orderBy";
 
     /**
+     * Argument name to return only distinct (different) values.
+     */
+    const val DISTINCT_ON = "distinct_on"
+
+
+    /**
      * Argument name for specifying which slice to retain from the results.
      */
     const val CURSOR = "cursor";
@@ -146,5 +152,6 @@ object ByosConstants {
      * Comparison operator for is null
      */
     const val COMPARISON_IS_NULL = "_is_null";
+
 
 }
