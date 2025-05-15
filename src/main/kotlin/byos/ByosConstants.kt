@@ -55,7 +55,7 @@ object ByosConstants {
     /**
      * Argument name to return only distinct (different) values.
      */
-    const val DISTINCT_ON = "distinct_on"
+    const val DISTINCT_ON = "distinctOn"
 
 
     /**
