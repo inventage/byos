@@ -1,5 +1,5 @@
 type Query {
-    allFilms(limit: Int, after: String, orderBy: FilmOrder): FilmConnection!
+    allFilms(limit: Int, after: String, orderBy: [FilmOrder!], distinctOn: [Film_select_column!]): FilmConnection!
     filmById(where: FilmWhere): Film
     filmByIds(limit: Int, after: String, where: FilmWhere): FilmConnection!
     allActors: [Actor!]!
@@ -28,6 +28,22 @@ type Film {
     stores: StoreConnection!
     language: Language!
     original_language: Language
+}
+
+enum Film_select_column {
+    description
+    filmId
+    languageId
+    lastUpdate
+    length
+    originalLanguageId
+    rating
+    release_year
+    rentalDuration
+    rentalRate
+    replacementCost
+    specialFeatures
+    title
 }
 
 input FilmWhere {

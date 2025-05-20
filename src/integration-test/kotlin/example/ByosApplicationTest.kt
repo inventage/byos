@@ -660,7 +660,7 @@ internal class ByosApplicationTest {
     fun queryWithCustomOrder() {
         val query = """
             {
-              allFilms(limit: 3, orderBy: {title: asc}) {
+              allFilms(limit: 3, orderBy: [{title: asc}]) {
                 edges {
                   node {
                     film_id
@@ -709,7 +709,7 @@ internal class ByosApplicationTest {
     fun orderByMultipleFieldsAndUseCursor() {
         val query = """
             {
-              allFilms (orderBy: {release_year: asc, title: desc, film_id: asc}, after: "{\"release_year\" : 2006, \"title\" : \"AFFAIR PREJUDICE\", \"film_id\" : 4}") {
+              allFilms (orderBy: [{release_year: asc, title: desc, film_id: asc}], after: "{\"release_year\" : 2006, \"title\" : \"AFFAIR PREJUDICE\", \"film_id\" : 4}") {
                 edges {
                   node {
                     title
@@ -751,4 +751,97 @@ internal class ByosApplicationTest {
             """.trimIndent()
         assertJsonEquals(expectedResult, graphQLService.executeGraphQLQuery(query))
     }
+
+    @Test
+    fun queryWithDistinctOn() {
+        val query = """
+        query {
+          allFilms(distinctOn: [title], orderBy: [{title: asc}], limit: 3) {
+            edges {
+              node {
+                title
+                release_year
+              }
+            }
+          }
+        }
+    """.trimIndent()
+
+        val expectedResult = """
+        {
+          "data": {
+            "allFilms": {
+              "edges": [
+                {
+                  "node": {
+                    "title": "ACADEMY DINOSAUR",
+                    "release_year": 2006
+                  }
+                },
+                {
+                  "node": {
+                    "title": "ACE GOLDFINGER",
+                    "release_year": 2006
+                  }
+                },
+                {
+                  "node": {
+                    "title": "ADAPTATION HOLES",
+                    "release_year": 2006
+                  }
+                }
+              ]
+            }
+          }
+        }
+    """.trimIndent()
+
+        assertJsonEquals(expectedResult, graphQLService.executeGraphQLQuery(query))
+    }
+
+    @Test
+    fun queryWithDistinctOnAndRatingFilter() {
+        val query = """
+        query {
+          allFilms(
+            distinctOn: [release_year],
+            orderBy: [{ release_year: asc }]
+         ) {
+            edges {
+              node {
+                title
+                release_year
+              }
+            }
+          }
+        }
+    """.trimIndent()
+
+        val expectedResult = """
+        {
+          "data": {
+            "allFilms": {
+              "edges": [
+                {
+                  "node": {
+                    "title": "string",
+                    "release_year": 2001
+                  }
+                },
+                {
+                  "node": {
+                    "title": "ACADEMY DINOSAUR",
+                    "release_year": 2006
+                  }
+                }
+              ]
+            }
+          }
+        }
+    """.trimIndent()
+
+        assertJsonEquals(expectedResult, graphQLService.executeGraphQLQuery(query))
+    }
+
+
 }

@@ -3,6 +3,7 @@ package byos
 import byos.ByosConstants.AFTER
 import byos.ByosConstants.ORDER_BY
 import byos.ByosConstants.WHERE
+import byos.ByosConstants.DISTINCT_ON
 import com.fasterxml.jackson.databind.JsonNode
 import graphql.language.*
 import graphql.schema.GraphQLSchema
@@ -26,7 +27,7 @@ sealed class InternalQueryNode(val graphQLFieldName: String, val graphQLAlias: S
 }
 
 data class FieldTypeInfo(val graphQLTypeName: String, val isList: Boolean) {
-    val relationName = graphQLTypeName;//.lowercase()
+    val relationName = graphQLTypeName//.lowercase()
 }
 
 data class ConnectionInfo(
@@ -205,7 +206,7 @@ class QueryTranspiler(
                 }
             }
         }
-        return result;
+        return result
     }
 
 //    fun resolveInternalQueryTree(
@@ -259,17 +260,33 @@ class QueryTranspiler(
         val (paginationArgument, otherArguments) =
             relation.arguments.partition { it.name == ByosConstants.LIMIT }
         val (orderByArgument, otherArguments2) = otherArguments.partition { it.name == ORDER_BY }
-        val (afterArgument, whereArguments) = otherArguments2.partition { it.name == AFTER }
-        val (whereArgument, filterArguments) = whereArguments.partition { it.name == WHERE }
+        val (afterArgument, otherArguments3) = otherArguments2.partition { it.name == AFTER }
+        val (whereArgument, otherArguments4) = otherArguments3.partition { it.name == WHERE }
+        val (distinctOnArgument, filterArguments) = otherArguments4.partition { it.name == DISTINCT_ON }
+
+        val distinctOnFields = (distinctOnArgument.firstOrNull()?.value as? ArrayValue)
+            ?.values
+            ?.mapNotNull { (it as? EnumValue)?.name }
+            ?.mapNotNull { outerTable.field(it) }
+            .orEmpty()
+
 
         //val limitValue = (paginationArgument.firstOrNull()?.value as IntValue?)?.value
         val limitValue = ConditionFactory.extractIntValue(paginationArgument.firstOrNull()?.value, variables)?.value
 
-        val providedOrderCriteria =
-            (orderByArgument.firstOrNull()?.value as ObjectValue?)?.objectFields?.associate {
-                outerTable.field(it.name.lowercase())!! to
-                        (it.value as EnumValue).name
-            }.orEmpty()
+        val providedOrderCriteria: Map<org.jooq.Field<*>, String> =
+            (orderByArgument.firstOrNull()?.value as? ArrayValue)
+                ?.values
+                ?.filterIsInstance<ObjectValue>()
+                ?.flatMap { obj ->
+                    obj.objectFields.mapNotNull { field ->
+                        val column = outerTable.field(field.name.lowercase())
+                        val direction = (field.value as? EnumValue)?.name
+                        if (column != null && direction != null) column to direction else null
+                    }
+                }
+                ?.toMap(LinkedHashMap())
+                .orEmpty()
         val primaryKeyFields = outerTable.primaryKey?.fields?.map { outerTable.field(it)!! } ?: outerTable.fields().toList()
 
         val orderByFields = providedOrderCriteria.keys + (primaryKeyFields - providedOrderCriteria.keys).toSet()
@@ -287,19 +304,23 @@ class QueryTranspiler(
             ?.let { whereCondition.getForAfterArgument(it, orderByFieldsWithDirection, outerTable) }
             ?: DSL.noCondition()
 
-        val where = whereArguments.map { whereCondition.getForWhere(it, variables, outerTable)}
+        val where = whereArgument.map { whereCondition.getForWhere(it, variables, outerTable)}
 
-        val argumentConditions =
-            filterArguments.map { whereCondition.getForArgument(it, outerTable) }
 
         val cursorRequested = relation.connectionInfo?.cursorGraphQLAliases?.isNotEmpty() ?: false
         val endCursorRequested = relation.connectionInfo?.pageInfos?.flatMap { it.endCursorGraphQlAliases }?.isNotEmpty() ?: false
         val hasNextPageRequested = relation.connectionInfo?.pageInfos?.flatMap { it.hasNextPageGraphQlAliases }?.isNotEmpty() ?: false
 
+        val cteSelect = DSL.select()
+            .apply {
+                if (distinctOnFields.isNotEmpty()) {
+                    distinctOn(*distinctOnFields.toTypedArray())
+                }
+            }
         val cte =
             DSL.name("cte")
                 .`as`(
-                    DSL.select(attributeNames)
+                    cteSelect.select(attributeNames)
                         .select(subSelects)
                         .apply {
                             if (cursorRequested || endCursorRequested)
