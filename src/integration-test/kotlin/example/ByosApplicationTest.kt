@@ -648,7 +648,7 @@ internal class ByosApplicationTest {
                       "cursor": "{\"film_id\" : 1}"
                     }
                   ],
-                  "totalCount": 1007
+                  "totalCount": 1000
                 }
               }
             }
@@ -744,7 +744,7 @@ internal class ByosApplicationTest {
                       "cursor": "{\"release_year\" : 2006, \"title\" : \"ACADEMY DINOSAUR\", \"film_id\" : 1}"
                     }
                   ],
-                  "totalCount": 1007
+                  "totalCount": 1000
                 }
               }
             }
@@ -822,12 +822,6 @@ internal class ByosApplicationTest {
           "data": {
             "allFilms": {
               "edges": [
-                {
-                  "node": {
-                    "title": "string",
-                    "release_year": 2001
-                  }
-                },
                 {
                   "node": {
                     "title": "ACADEMY DINOSAUR",
