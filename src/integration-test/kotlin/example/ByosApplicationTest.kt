@@ -648,7 +648,7 @@ internal class ByosApplicationTest {
                       "cursor": "{\"film_id\" : 1}"
                     }
                   ],
-                  "totalCount": 1000
+                  "totalCount": 1007
                 }
               }
             }
@@ -744,7 +744,7 @@ internal class ByosApplicationTest {
                       "cursor": "{\"release_year\" : 2006, \"title\" : \"ACADEMY DINOSAUR\", \"film_id\" : 1}"
                     }
                   ],
-                  "totalCount": 1000
+                  "totalCount": 1007
                 }
               }
             }
