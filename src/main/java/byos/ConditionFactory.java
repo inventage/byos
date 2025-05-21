@@ -9,6 +9,7 @@ import org.jooq.impl.DSL;
 
 import java.math.BigDecimal;
 import java.math.BigInteger;
+import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
 
@@ -86,27 +87,32 @@ public class ConditionFactory {
         if (!(objectValue instanceof ObjectValue)) {
             throw new IllegalArgumentException("Handling for value not yet implemented: " + objectValue);
         }
-        if (((ObjectValue)objectValue).getObjectFields().size() != 1) {
-            throw new IllegalArgumentException("Handling for multiple object fields not yet implemented: " + objectValue);
+
+        List<ObjectField> objectFields = ((ObjectValue) objectValue).getObjectFields();
+        Condition combinedCondition = null;
+
+        for (ObjectField objectField : objectFields) {
+            Object value = extractValue(objectField.getValue(), variables);
+            Condition condition = switch (StringComparisonOperator.valueOf(objectField.getName())) {
+                case _eq -> field.eq(value);
+                case _neq -> field.ne(value);
+                case _lt -> field.lt(value);
+                case _lte -> field.lessOrEqual(value);
+                case _gt -> field.gt(value);
+                case _gte -> field.greaterOrEqual(value);
+                case _like -> field.like(value.toString());
+                case _ilike -> field.likeIgnoreCase(value.toString());
+                case _regex -> field.likeRegex(value.toString());
+                case _iregex -> field.likeIgnoreCase(value.toString());
+                case _in -> field.in(value);
+                case _nin -> field.notIn(value);
+                case _is_null -> field.isNull();
+                default -> throw new IllegalArgumentException("nyi");
+            };
+
+            combinedCondition = (combinedCondition == null) ? condition : combinedCondition.and(condition);
         }
-        final ObjectField objectField = ((ObjectValue) objectValue).getObjectFields().get(0);
-        final Object value = extractValue(objectField.getValue(), variables);
-        return switch (StringComparisonOperator.valueOf(objectField.getName())) {
-            case _eq -> field.eq(value);
-            case _neq -> field.ne(value);
-            case _lt -> field.lt(value);
-            case _lte -> field.lessOrEqual(value);
-            case _gt -> field.gt(value);
-            case _gte -> field.greaterOrEqual(value);
-            case _like -> field.like(value.toString());
-            case _ilike -> field.likeIgnoreCase(value.toString());
-            case _regex -> field.likeRegex(value.toString());
-            case _iregex -> field.likeIgnoreCase(value.toString());
-            case _in -> field.in(value);
-            case _nin -> field.notIn(value);
-            case _is_null -> field.isNull();
-            default -> throw new IllegalArgumentException("nyi");
-        };
+        return combinedCondition;
     }
 
     public static Object extractValue(Value value, Map<String, JsonNode> variables) {

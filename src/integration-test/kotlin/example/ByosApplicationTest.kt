@@ -836,6 +836,35 @@ internal class ByosApplicationTest {
 
         assertJsonEquals(expectedResult, graphQLService.executeGraphQLQuery(query))
     }
+    @Test
+    fun queryWithRecursiveFragments() {
+        val query = """
+            fragment FilmBaseFields on Film {
+              film_id
+              title
+            }
 
+            fragment FilmWithLimitedActors on Film {
+              ...FilmBaseFields
+            }
+            query RecursiveFragmentTest {
+              film1: filmById(where: {film_id: {_eq: 1}}) {
+                ...FilmWithLimitedActors
+              }
+            }
+        """.trimIndent()
 
+        val expectedResult = """
+            {
+              "data": {
+                "film1": {
+                  "film_id": 1,
+                  "title": "ACADEMY DINOSAUR"
+                }
+              }  
+            }    
+        
+        """.trimIndent()
+        assertJsonEquals(expectedResult, graphQLService.executeGraphQLQuery(query))
+    }
 }

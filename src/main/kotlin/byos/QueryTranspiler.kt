@@ -58,6 +58,28 @@ class QueryTranspiler(
         getChildrenFromSelectionSet(queryDefinition.selectionSet, fragments, Counter()).map {
             it as InternalQueryNode.Relation
         }
+    private fun collectFieldsFromSelectionSet(
+        selectionSet: SelectionSet,
+        fragments: List<FragmentDefinition>
+    ): List<Field> {
+        val fields = mutableListOf<Field>()
+
+        for (selection in selectionSet.selections) {
+            when (selection) {
+                is Field -> fields += selection
+
+                is FragmentSpread -> {
+                    val fragment = fragments.single { it.name == selection.name }
+                    fields += collectFieldsFromSelectionSet(fragment.selectionSet, fragments)
+                }
+
+                is InlineFragment -> {
+                    fields += collectFieldsFromSelectionSet(selection.selectionSet, fragments)
+                }
+            }
+        }
+        return fields
+    }
 
     private fun getChildrenFromSelectionSet(
         selectionSet: SelectionSet,
@@ -65,15 +87,8 @@ class QueryTranspiler(
         counter: Counter,
         parentGraphQlTypeName: String = schema.queryType.name
     ): List<InternalQueryNode> {
-        val fieldsFromSpread = selectionSet.selections.filterIsInstance<FragmentSpread>().map { fragmentSpread ->
-            val fragment = fragments.filterIsInstance<FragmentDefinition>().single {
-                it.name == fragmentSpread.name
-            }
-            fragment.selectionSet.selections.filterIsInstance<Field>().map { field ->
-                field
-            }
-        }
-        val result = listOf(selectionSet.selections, fieldsFromSpread.flatten()).flatten().filterIsInstance<Field>().map { selection ->
+        val fieldsFromSpread = collectFieldsFromSelectionSet(selectionSet, fragments)
+        val result = fieldsFromSpread.map { selection ->
             val subSelectionSet = selection.selectionSet
             when {
                 subSelectionSet == null -> {
@@ -228,7 +243,7 @@ class QueryTranspiler(
         val attributeNames =
             attributes.distinctBy { it.graphQLAlias }.map { attribute ->
                 if (ByosConstants.GRAPHQL_TYPENAME_INTROSPECTION.equals(attribute.graphQLFieldName)) {
-                    DSL.inline(relation.graphQLAlias).`as`(ByosConstants.GRAPHQL_TYPENAME_INTROSPECTION)
+                    DSL.inline(relation.fieldTypeInfo.graphQLTypeName).`as`(ByosConstants.GRAPHQL_TYPENAME_INTROSPECTION)
                 }
                 else {
                     outerTable
@@ -289,7 +304,10 @@ class QueryTranspiler(
                 .orEmpty()
         val primaryKeyFields = outerTable.primaryKey?.fields?.map { outerTable.field(it)!! } ?: outerTable.fields().toList()
 
-        val orderByFields = providedOrderCriteria.keys + (primaryKeyFields - providedOrderCriteria.keys).toSet()
+        val orderByFields = providedOrderCriteria.keys +
+                (distinctOnFields - providedOrderCriteria.keys).toSet() +
+                (primaryKeyFields - providedOrderCriteria.keys - distinctOnFields.toSet()).toSet()
+
         val orderByFieldsWithDirection = orderByFields
             .map {
                 when (providedOrderCriteria[it]) {
