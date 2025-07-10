@@ -130,7 +130,7 @@ class QueryTranspiler(
                     InternalQueryNode.Relation(
                         graphQLFieldName = selection.name,
                         graphQLAlias = selection.alias ?: selection.name,
-                        sqlAlias = "${selection.name}-${counter.getIncrementingNumber()}",
+                        sqlAlias = nodeTypeInfo.relationName,
                         fieldTypeInfo = nodeTypeInfo,
                         children =
                         getChildrenFromSelectionSet(
@@ -206,7 +206,7 @@ class QueryTranspiler(
                     InternalQueryNode.Relation(
                         graphQLFieldName = selection.name,
                         graphQLAlias = selection.alias ?: selection.name,
-                        sqlAlias = "${selection.name}-${counter.getIncrementingNumber()}",
+                        sqlAlias = fieldTypeInfo.relationName,
                         fieldTypeInfo = fieldTypeInfo,
                         children =
                         getChildrenFromSelectionSet(
