@@ -295,7 +295,7 @@ class QueryTranspiler(
                 ?.filterIsInstance<ObjectValue>()
                 ?.flatMap { obj ->
                     obj.objectFields.mapNotNull { field ->
-                        val column = outerTable.field(field.name.lowercase())
+                        val column = outerTable.field(field.name)
                         val direction = (field.value as? EnumValue)?.name
                         if (column != null && direction != null) column to direction else null
                     }
@@ -315,6 +315,7 @@ class QueryTranspiler(
                     else -> it.asc()
                 }
             }
+
         val cursor = DSL.jsonObject(*orderByFields.toTypedArray()).cast(String::class.java).`as`(ByosConstants.CURSOR)
 
         val afterCondition = afterArgument

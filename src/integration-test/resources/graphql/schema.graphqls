@@ -2,7 +2,7 @@ type Query {
     allFilms(limit: Int, after: String, orderBy: [FilmOrder!], distinctOn: [Film_select_column!]): FilmConnection!
     filmById(where: FilmWhere): Film
     filmByIds(limit: Int, after: String, where: FilmWhere): FilmConnection!
-    allActors: [Actor!]!
+    allActors(orderBy: [ActorOrder!]): [Actor!]!
     actorById(where: ActorWhere): Actor
     allCategories(limit: Int, after: String): CategoryConnection!
     allStores(limit: Int, after: String): StoreConnection!
@@ -64,6 +64,12 @@ input FilmOrder {
     film_id: orderByDirection
     title: orderByDirection
     release_year: orderByDirection
+}
+
+input ActorOrder {
+    actor_id: orderByDirection
+    last_name: orderByDirection
+    first_name: orderByDirection
 }
 
 type FilmConnection {

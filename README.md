@@ -1,9 +1,9 @@
 # Bring Your Own Schema (BYOS)
 
+[Build Pipeline](https://github.com/inventage/byos/actions/workflows/build.yml)
+
 **Bring Your Own Schema (BYOS)** is an implementation based on the concepts presented in [my thesis](https://db.cs.uni-tuebingen.de/theses/2023/lukas-sailer/lukas-sailer-2023.pdf), focusing on transpiling GraphQL queries to SQL.
 This repository provides a practical example of how to bring your own GraphQL schema and use it to generate efficient SQL queries.
-
-**This is very much a prototype for now!**
 
 ## Features
 
@@ -33,7 +33,7 @@ query { filmByIds(where: {film_id: {_in: [1,2]}}) { edges { node { film_id title
 The order of the result can be defined by the `orderBy` argument.
 
 ```graphql
-query { allFilms(orderBy: {title: asc}) { edges { node { film_id title } } } }
+query { allFilms(orderBy: [{title: asc}]) { edges { node { film_id title } } } }
 ```
 
 ## Project structure
