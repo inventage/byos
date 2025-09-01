@@ -68,6 +68,7 @@ sourceSets {
         }
     }
 }
+
 tasks.register<Test>("integrationTest") {
     description = "Runs integration tests."
     group = "verification"
@@ -77,6 +78,19 @@ tasks.register<Test>("integrationTest") {
     useJUnitPlatform()
 
     shouldRunAfter(tasks.test)
+}
+
+// produces byos-sources.jar in build/libs
+tasks {
+    val sourcesJar by creating(Jar::class) {
+        archiveClassifier.set("sources")
+        from(sourceSets.getByName("main").java.srcDirs)
+        from(sourceSets.getByName("main").kotlin.srcDirs)
+    }
+
+    artifacts {
+        archives(sourcesJar)
+    }
 }
 
 publishing {
