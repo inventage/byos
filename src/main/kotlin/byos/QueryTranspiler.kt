@@ -302,7 +302,8 @@ class QueryTranspiler(
                 }
                 ?.toMap(LinkedHashMap())
                 .orEmpty()
-        val primaryKeyFields = outerTable.primaryKey?.fields?.map { outerTable.field(it)!! } ?: outerTable.fields().toList()
+        // if no primary is available, no fields are added to orderBy
+        val primaryKeyFields = outerTable.primaryKey?.fields?.map { outerTable.field(it)!! } ?: emptyList<org.jooq.Field<*>>()
 
         val orderByFields = providedOrderCriteria.keys +
                 (distinctOnFields - providedOrderCriteria.keys).toSet() +
