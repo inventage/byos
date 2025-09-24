@@ -1,3 +1,4 @@
+//https://docs.gradle.org/current/kotlin-dsl/index.html
 import org.jetbrains.kotlin.gradle.tasks.KotlinCompile
 import nu.studer.gradle.jooq.JooqEdition
 import java.nio.file.Files
