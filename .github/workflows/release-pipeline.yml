@@ -1,4 +1,4 @@
-name: Release
+name: Release Pipeline
 run-name: 'Release of version ${{ inputs.version }} triggered by ${{ github.actor }} on ${{ github.ref }}'
 
 on:
