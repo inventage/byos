@@ -148,7 +148,7 @@ public class ConditionFactory {
         throw new IllegalArgumentException("nyi");
     }
 
-    protected static Object extractArrayValue(ArrayNode arrayNode) {
+    protected static List extractArrayValue(ArrayNode arrayNode) {
         ObjectMapper mapper = new ObjectMapper();
         return StreamSupport.stream(arrayNode.spliterator(), false)
                 .map(jsonNode -> mapper.convertValue(jsonNode, Object.class)).collect(Collectors.toList());
