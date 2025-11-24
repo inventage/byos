@@ -95,22 +95,48 @@ public class ConditionFactory {
 
         for (ObjectField objectField : objectFields) {
             Object value = extractValue(objectField.getValue(), variables);
-            Condition condition = switch (StringComparisonOperator.valueOf(objectField.getName())) {
-                case _eq -> field.eq(value);
-                case _neq -> field.ne(value);
-                case _lt -> field.lt(value);
-                case _lte -> field.lessOrEqual(value);
-                case _gt -> field.gt(value);
-                case _gte -> field.greaterOrEqual(value);
-                case _like -> field.like(value.toString());
-                case _ilike -> field.likeIgnoreCase(value.toString());
-                case _regex -> field.likeRegex(value.toString());
-                case _iregex -> field.likeIgnoreCase(value.toString());
-                case _in -> field.in(value);
-                case _nin -> field.notIn(value);
-                case _is_null -> field.isNull();
-                default -> throw new IllegalArgumentException("nyi");
-            };
+            StringComparisonOperator.valueOf(objectField.getName());
+            Condition condition;
+            switch (StringComparisonOperator.valueOf(objectField.getName())) {
+                case _eq:
+                    condition = field.eq(value);
+                    break;
+                case _neq:
+                    condition = field.ne(value);
+                    break;
+                case _lt:
+                    condition = field.lt(value);
+                    break;
+                case _lte:
+                    condition = field.lessOrEqual(value);
+                    break;
+                case _gt:
+                    condition = field.gt(value);
+                    break;
+                case _gte:
+                    condition = field.greaterOrEqual(value);
+                    break;
+                case _like:
+                    condition = field.like(value.toString());
+                    break;
+                case _ilike, _iregex:
+                    condition = field.likeIgnoreCase(value.toString());
+                    break;
+                case _regex:
+                    condition = field.likeRegex(value.toString());
+                    break;
+                case _in:
+                    condition = field.in((Object[]) value);
+                    break;
+                case _nin:
+                    condition = field.notIn((Object[]) value);
+                    break;
+                case _is_null:
+                    condition = field.isNull();
+                    break;
+                default:
+                    throw new IllegalArgumentException("nyi");
+            }
 
             combinedCondition = (combinedCondition == null) ? condition : combinedCondition.and(condition);
         }
