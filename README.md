@@ -28,6 +28,17 @@ The result can be restricted to a condition by the `where` argument.
 query { filmByIds(where: {film_id: {_in: [1,2]}}) { edges { node { film_id title } } } }
 ```
 
+And with variables `{ "firstNames": ["ED", "JOE"] }`:
+
+```graphql
+query Actors_with_FirstName($firstNames: [String!]!) {
+ Actor(where: {firstName: { _in: $firstNames} }) {
+   actorId
+   firstName
+ }
+}
+```
+
 ### order
 
 The order of the result can be defined by the `orderBy` argument.

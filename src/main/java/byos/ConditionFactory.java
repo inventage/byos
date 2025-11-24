@@ -1,6 +1,8 @@
 package byos;
 
 import com.fasterxml.jackson.databind.JsonNode;
+import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.databind.node.ArrayNode;
 import graphql.language.*;
 import org.jooq.Condition;
 import org.jooq.Field;
@@ -130,9 +132,23 @@ public class ConditionFactory {
             return ((ObjectValue)value).getObjectFields();
         } else if (value instanceof VariableReference) {
             final JsonNode jsonNode = variables.get(((VariableReference) value).getName());
-            return jsonNode != null ? jsonNode.asText() : null;
+            if (jsonNode != null) {
+                if (jsonNode.isArray()) {
+                    return extractArrayValue((ArrayNode) jsonNode);
+                }
+                else {
+                    return jsonNode.asText();
+                }
+            }
+            return null;
         }
         throw new IllegalArgumentException("nyi");
+    }
+
+    protected static Object[] extractArrayValue(ArrayNode arrayNode) {
+        ObjectMapper mapper = new ObjectMapper();
+        Object[] objects = mapper.convertValue(arrayNode, Object[].class);
+        return objects;
     }
 
     public static IntValue extractIntValue(Value value, Map<String, JsonNode> variables) {

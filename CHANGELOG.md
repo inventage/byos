@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 1.0.1-[Unreleased]
 
+### Added
+
+- Support variables of type array
+
 ## [1.0.0]-202510030859-26-e043661
 
 [Artifacts](https://nexus3.inventage.com/#browse/browse:inventage-projectware-maven:com%2Finventage%2Fgraphql%2Fbyos%2F1.0.0-202510030859-26-e043661)
