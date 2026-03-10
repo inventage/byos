@@ -52,3 +52,20 @@ fun getConditionForRelationship(relationshipName: String, left: Table<*>, right:
 
         else -> null
     }
+
+fun getRelatedTable(relationshipName: String, from: Table<*>): Table<*>? =
+    when {
+        relationshipName == "actors" && from is Film -> Tables.ACTOR
+        relationshipName == "films" && from is Actor -> Tables.FILM
+        relationshipName == "stores" && from is Film -> Tables.STORE
+        relationshipName == "films" && from is Store -> Tables.FILM
+        relationshipName == "language" && from is Film -> Tables.LANGUAGE
+        relationshipName == "original_language" && from is Film -> Tables.LANGUAGE
+        relationshipName == "inventories" && from is Store -> Tables.INVENTORY
+        relationshipName == "film" && from is Inventory -> Tables.FILM
+        relationshipName == "categories" && from is Film -> Tables.CATEGORY
+        relationshipName == "films" && from is Category -> Tables.FILM
+        relationshipName == "parent_category" && from is Category -> Tables.CATEGORY
+        relationshipName == "subcategories" && from is Category -> Tables.CATEGORY
+        else -> null
+    }

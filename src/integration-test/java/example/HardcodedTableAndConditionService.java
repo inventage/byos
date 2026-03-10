@@ -21,4 +21,10 @@ public class HardcodedTableAndConditionService implements TableAndConditionServi
     public Condition getConditionFor(@NotNull String relationshipName, @NotNull Table<?> left, @NotNull Table<?> right) {
         return ConfigKt.getConditionForRelationship(relationshipName, left, right);
     }
+
+    @Nullable
+    @Override
+    public Table<?> getRelatedTable(@NotNull String relationshipName, @NotNull Table<?> from) {
+        return ConfigKt.getRelatedTable(relationshipName, from);
+    }
 }

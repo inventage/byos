@@ -21,22 +21,27 @@ import static byos.ByosConstants.*;
 // https://www.graphql-java.com/documentation/data-mapping#scalars
 public class ConditionFactory {
 
-    public static Condition getWhereCondition(Argument whereArgument, Map<String, JsonNode> variables, Table<?> table) {
-        return getCondition(getWhereObject(whereArgument.getValue()), variables, table);
+    public static Condition getWhereCondition(
+            Argument whereArgument,
+            Map<String, JsonNode> variables,
+            Table<?> table,
+            TableAndConditionService tableAndConditionService
+    ) {
+        return getCondition(getWhereObject(whereArgument.getValue()), variables, table, tableAndConditionService);
     }
 
-    public static Condition getCondition(ObjectValue objectValue, Map<String, JsonNode> variables, Table<?> table) {
+    public static Condition getCondition(ObjectValue objectValue, Map<String, JsonNode> variables, Table<?> table, TableAndConditionService tableAndConditionService) {
         switch (objectValue.getObjectFields().size()) {
             case 0: {
                 return DSL.noCondition();
             }
             case 1: {
-                return getCondition(objectValue.getObjectFields().get(0), variables, table);
+                return getCondition(objectValue.getObjectFields().get(0), variables, table, tableAndConditionService);
             }
             default: {
                 // multiple fields conditions are "add" concatenated by default
                 return DSL.and(objectValue.getObjectFields().stream()
-                        .map(objectField -> getCondition(objectField, variables, table))
+                        .map(objectField -> getCondition(objectField, variables, table, tableAndConditionService))
                         .collect(Collectors.toSet()));
             }
         }
@@ -53,64 +58,80 @@ public class ConditionFactory {
         throw new IllegalArgumentException("Value of whereArgument must be an object");
     }
 
-    private static Condition getCondition(ObjectField objectField, Map<String, JsonNode> variables, Table<?> table) {
+    private static Condition getCondition(ObjectField objectField, Map<String, JsonNode> variables, Table<?> table, TableAndConditionService tableAndConditionService) {
         final String name = objectField.getName();
         switch (name) {
             case CONDITION_AND: {
                 Value rawValue = objectField.getValue();
                 if (rawValue instanceof VariableReference) {
                     JsonNode resolved = variables.get(((VariableReference) rawValue).getName());
-                    return DSL.and(List.of(getConditionFromJsonNode(resolved, variables, table)));
+                    return DSL.and(List.of(getConditionFromJsonNode(resolved, variables, table, tableAndConditionService)));
                 }
                 return DSL.and(asArrayValue(rawValue).getValues().stream()
-                        .map(value -> resolveToCondition(value, variables, table))
+                        .map(value -> resolveToCondition(value, variables, table, tableAndConditionService))
                         .collect(Collectors.toList()));
             }
             case CONDITION_OR: {
                 Value rawValue = objectField.getValue();
                 if (rawValue instanceof VariableReference) {
                     JsonNode resolved = variables.get(((VariableReference) rawValue).getName());
-                    return DSL.or(List.of(getConditionFromJsonNode(resolved, variables, table)));
+                    return DSL.or(List.of(getConditionFromJsonNode(resolved, variables, table, tableAndConditionService)));
                 }
                 return DSL.or(asArrayValue(rawValue).getValues().stream()
-                        .map(value -> resolveToCondition(value, variables, table))
+                        .map(value -> resolveToCondition(value, variables, table, tableAndConditionService))
                         .collect(Collectors.toList()));
-            }            case CONDITION_NOT: {
-                return DSL.not(getCondition((ObjectValue) objectField.getValue(), variables, table));
+            }
+            case CONDITION_NOT: {
+                return DSL.not(getCondition((ObjectValue) objectField.getValue(), variables, table, tableAndConditionService)); 
             }
             default: {
+
                 final Field field = table.field(name);
                 if (field != null) {
                     return getCondition(field, variables, objectField.getValue());
+                }
+                // if the name does not match with any columns in the current table and it is is a nested object
+                // (not a scalar)
+                if (tableAndConditionService != null && objectField.getValue() instanceof ObjectValue) {
+                    ObjectValue nestedWhere = (ObjectValue) objectField.getValue();
+
+                    Table<?> relatedTable = tableAndConditionService.getRelatedTable(name, table);
+                    if (relatedTable != null) {
+                        Condition joinCondition = tableAndConditionService.getConditionFor(name, table, relatedTable);
+                        Condition nestedCondition = getCondition(nestedWhere, variables, relatedTable, tableAndConditionService);
+                        return DSL.exists(
+                                DSL.selectOne()
+                                        .from(relatedTable)
+                                        .where(joinCondition)
+                                        .and(nestedCondition)
+                        );
+                    }
                 }
             }
         }
         return DSL.noCondition();
     }
 
-    private static Condition resolveToCondition(Value value, Map<String, JsonNode> variables, Table<?> table) {
+    private static Condition resolveToCondition(Value value, Map<String, JsonNode> variables, Table<?> table, TableAndConditionService tableAndConditionService) {
         if (value instanceof ObjectValue) {
-            return getCondition((ObjectValue) value, variables, table);
+            return getCondition((ObjectValue) value, variables, table, tableAndConditionService);
         } else if (value instanceof VariableReference) {
             JsonNode resolved = variables.get(((VariableReference) value).getName());
-            return getConditionFromJsonNode(resolved, variables, table);
+            return getConditionFromJsonNode(resolved, variables, table, tableAndConditionService);
         }
         throw new IllegalArgumentException("Unsupported value type in condition array: " + value.getClass());
     }
 
-    private static Condition getConditionFromJsonNode(JsonNode node, Map<String, JsonNode> variables, Table<?> table) {
+    private static Condition getConditionFromJsonNode(JsonNode node, Map<String, JsonNode> variables, Table<?> table, TableAndConditionService tableAndConditionService) {
         if (node.isObject()) {
             ObjectValue.Builder builder = ObjectValue.newObjectValue();
             node.fields().forEachRemaining(entry -> {
-                Value nestedValue = jsonNodeToValue(entry.getValue());
-                builder.objectField(
-                        ObjectField.newObjectField()
-                                .name(entry.getKey())
-                                .value(nestedValue)
-                                .build()
-                );
+                builder.objectField(ObjectField.newObjectField()
+                        .name(entry.getKey())
+                        .value(jsonNodeToValue(entry.getValue()))
+                        .build());
             });
-            return getCondition(builder.build(), variables, table);
+            return getCondition(builder.build(), variables, table, tableAndConditionService);
         }
         return DSL.noCondition();
     }
