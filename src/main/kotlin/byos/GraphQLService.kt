@@ -14,9 +14,14 @@ import graphql.language.FragmentDefinition
 import graphql.language.OperationDefinition
 import graphql.parser.Parser
 import graphql.schema.GraphQLSchema
+import graphql.validation.ValidationError
 import graphql.validation.Validator
 import org.jooq.DSLContext
+import org.jooq.SQLDialect
+import org.jooq.impl.DSL
+import org.slf4j.LoggerFactory
 import java.util.*
+import java.util.concurrent.ConcurrentHashMap
 
 data class RequestInfo(
         val document: Document,
@@ -87,11 +92,19 @@ class GraphQLService(val schema: GraphQLSchema, private val tableAndConditionSer
 
         val queryTrees = queryTranspiler.buildInternalQueryTrees(ast, fragments)
         val results =
-                queryTrees.map { tree -> run {}
-                    jooq.select(queryTranspiler.resolveInternalQueryTree(tree, requestInfo.variables)).fetch()
-                }
+            queryTrees.map { tree -> run {}
+                val queryPart = queryTranspiler.resolveInternalQueryTree(tree, requestInfo.variables)
+            val sqlString = jooq.renderInlined(DSL.select(queryPart))
+            jooq.fetch(sqlString)
+            }
+
+//        val results =
+//            queryTrees.map { tree -> run {}
+//                jooq.select(queryTranspiler.resolveInternalQueryTree(tree, requestInfo.variables)).fetch()
+//            }
 
         results.map(::println) // TODO rm debug statement
-        return results.formatGraphQLResponse()
+        return results.formatGraphQLResponse();
     }
 }
+
