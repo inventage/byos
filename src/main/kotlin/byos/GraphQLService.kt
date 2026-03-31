@@ -14,14 +14,10 @@ import graphql.language.FragmentDefinition
 import graphql.language.OperationDefinition
 import graphql.parser.Parser
 import graphql.schema.GraphQLSchema
-import graphql.validation.ValidationError
 import graphql.validation.Validator
 import org.jooq.DSLContext
-import org.jooq.SQLDialect
 import org.jooq.impl.DSL
-import org.slf4j.LoggerFactory
 import java.util.*
-import java.util.concurrent.ConcurrentHashMap
 
 data class RequestInfo(
         val document: Document,
