@@ -91,7 +91,6 @@ class GraphQLService(val schema: GraphQLSchema, private val tableAndConditionSer
                     jooq.select(queryTranspiler.resolveInternalQueryTree(tree, requestInfo.variables)).fetch()
                 }
 
-        results.map(::println) // TODO rm debug statement
         return results.formatGraphQLResponse()
     }
 }
