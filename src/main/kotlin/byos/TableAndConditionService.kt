@@ -18,4 +18,10 @@ interface TableAndConditionService {
      * Returns the join condition to be applied between the given two tables for the given relationship.
      */
     fun getConditionFor(relationshipName: String, left: Table<*>, right: Table<*>): Condition?
+
+    /**
+     * Get all the related tables, mainly important for nested lookups
+     */
+    fun getRelatedTable(relationshipName: String, from: Table<*>): Table<*>?
+
 }

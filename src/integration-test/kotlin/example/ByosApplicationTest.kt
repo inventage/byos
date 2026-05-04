@@ -1,5 +1,7 @@
 package example
 
+import com.fasterxml.jackson.databind.ObjectMapper
+import graphql.parser.Parser
 import org.junit.jupiter.api.Test
 import org.springframework.beans.factory.annotation.Autowired
 import org.springframework.boot.test.context.SpringBootTest
@@ -8,6 +10,69 @@ import org.springframework.boot.test.context.SpringBootTest
 internal class ByosApplicationTest {
     @Autowired
     private lateinit var graphQLService: GraphQLService
+
+    private val parser = Parser()
+    private val objectMapper = ObjectMapper()
+
+    @Test
+    fun queryWithAndVariableObjectCondition() {
+        val query = """
+        query FilmsList(
+          ${'$'}limit: Int!,
+          ${'$'}filter: String,
+          ${'$'}andCondition1: FilmWhere!
+        ) {
+          films: filmByIds(
+            where: { _and: [
+              { _or: [
+                { title: { _ilike: ${'$'}filter } }
+              ] },
+              ${'$'}andCondition1
+            ] },
+            limit: ${'$'}limit
+          ) {
+            edges {
+              node {
+                film_id
+                title
+              }
+            }
+          }
+        }
+    """.trimIndent()
+
+        val variables = mapOf(
+            "limit" to objectMapper.readTree("2"),
+            "filter" to objectMapper.readTree("\"%A%\""),
+            "andCondition1" to objectMapper.readTree("""{ "film_id": { "_gte": 2 } }""")
+        )
+
+        val expectedResult = """
+        {
+          "data": {
+            "films": {
+              "edges": [
+                {
+                  "node": {
+                    "film_id": 2,
+                    "title": "ACE GOLDFINGER"
+                  }
+                },
+                {
+                  "node": {
+                    "film_id": 3,
+                    "title": "ADAPTATION HOLES"
+                  }
+                }
+              ]
+            }
+          }
+        }
+    """.trimIndent()
+
+        val requestInfo = RequestInfo(parser.parseDocument(query), "FilmsList", variables)
+        assertJsonEquals(expectedResult, graphQLService.executeGraphQLQuery(requestInfo))
+    }
 
     @Test
     fun simpleQuery() {

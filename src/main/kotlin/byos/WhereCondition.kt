@@ -38,8 +38,8 @@ class WhereCondition(private val tableAndConditionService: TableAndConditionServ
         }
     }
 
-    fun getForWhere(argument: Argument, variables: Map<String, JsonNode> , table: Table<*>): Condition {
-        return ConditionFactory.getWhereCondition(argument, variables, table)
+    fun getForWhere(argument: Argument, variables: Map<String, JsonNode>, table: Table<*>): Condition {
+        return ConditionFactory.getWhereCondition(argument, variables, table, tableAndConditionService)
     }
 
     private fun extractValue(value: Value<Value<*>>): Any? =

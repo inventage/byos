@@ -16,6 +16,7 @@ import graphql.parser.Parser
 import graphql.schema.GraphQLSchema
 import graphql.validation.Validator
 import org.jooq.DSLContext
+import org.jooq.impl.DSL
 import java.util.*
 
 data class RequestInfo(
@@ -87,10 +88,18 @@ class GraphQLService(val schema: GraphQLSchema, private val tableAndConditionSer
 
         val queryTrees = queryTranspiler.buildInternalQueryTrees(ast, fragments)
         val results =
-                queryTrees.map { tree -> run {}
-                    jooq.select(queryTranspiler.resolveInternalQueryTree(tree, requestInfo.variables)).fetch()
-                }
+            queryTrees.map { tree -> run {}
+                val queryPart = queryTranspiler.resolveInternalQueryTree(tree, requestInfo.variables)
+            val sqlString = jooq.renderInlined(DSL.select(queryPart))
+            jooq.fetch(sqlString)
+            }
+
+//        val results =
+//            queryTrees.map { tree -> run {}
+//                jooq.select(queryTranspiler.resolveInternalQueryTree(tree, requestInfo.variables)).fetch()
+//            }
 
         return results.formatGraphQLResponse()
     }
 }
+
