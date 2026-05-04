@@ -7,6 +7,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 
 ## 1.0.2-[Unreleased]
 
+### Changed
+
+- Removed debug output showing result map like `|[{"id" : 32, "createdAt" : "2026-04-28T07:40:27...|`.
+
 ## [1.0.1]-202511241700-5-9af7191
 
 ### Added
