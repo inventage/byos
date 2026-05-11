@@ -10,6 +10,10 @@ and this project adheres to [Semantic Versioning](https://semver.org/spec/v2.0.0
 ### Changed
 
 - Removed debug output showing result map like `|[{"id" : 32, "createdAt" : "2026-04-28T07:40:27...|`.
+- Support variables as part of a GraphQL operation.
+- Support nested lookups, in the style of hasura.
+- Support for related tables in TableAndConditionService.
+- Transform DSL tree to string such that regelwerk can call $replace better and improve performance.
 
 ## [1.0.1]-202511241700-5-9af7191
 
