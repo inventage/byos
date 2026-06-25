@@ -279,9 +279,9 @@ class QueryTranspiler(
         val (whereArgument, otherArguments4) = otherArguments3.partition { it.name == WHERE }
         val (distinctOnArgument, filterArguments) = otherArguments4.partition { it.name == DISTINCT_ON }
 
-        val distinctOnFields = (distinctOnArgument.firstOrNull()?.value as? ArrayValue)
+        val distinctOnFields = (ConditionFactory.resolveVariable(distinctOnArgument.firstOrNull()?.value, variables) as? ArrayValue)
             ?.values
-            ?.mapNotNull { (it as? EnumValue)?.name }
+            ?.mapNotNull { (it as? EnumValue)?.name ?: (it as? StringValue)?.value }
             ?.mapNotNull { outerTable.field(it) }
             .orEmpty()
 
@@ -290,13 +290,13 @@ class QueryTranspiler(
         val limitValue = ConditionFactory.extractIntValue(paginationArgument.firstOrNull()?.value, variables)?.value
 
         val providedOrderCriteria: Map<org.jooq.Field<*>, String> =
-            (orderByArgument.firstOrNull()?.value as? ArrayValue)
+            (ConditionFactory.resolveVariable(orderByArgument.firstOrNull()?.value, variables) as? ArrayValue)
                 ?.values
                 ?.filterIsInstance<ObjectValue>()
                 ?.flatMap { obj ->
                     obj.objectFields.mapNotNull { field ->
                         val column = outerTable.field(field.name)
-                        val direction = (field.value as? EnumValue)?.name
+                        val direction = (field.value as? EnumValue)?.name ?: (field.value as? StringValue)?.value
                         if (column != null && direction != null) column to direction else null
                     }
                 }
@@ -321,7 +321,7 @@ class QueryTranspiler(
 
         val afterCondition = afterArgument
             .firstOrNull()
-            ?.let { whereCondition.getForAfterArgument(it, orderByFieldsWithDirection, outerTable) }
+            ?.let { whereCondition.getForAfterArgument(it, variables, orderByFieldsWithDirection, outerTable) }
             ?: DSL.noCondition()
 
         val where = whereArgument.map { whereCondition.getForWhere(it, variables, outerTable)}

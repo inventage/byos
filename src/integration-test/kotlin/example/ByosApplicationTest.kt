@@ -942,10 +942,136 @@ internal class ByosApplicationTest {
                   "film_id": 1,
                   "title": "ACADEMY DINOSAUR"
                 }
-              }  
-            }    
-        
+              }
+            }
+
         """.trimIndent()
         assertJsonEquals(expectedResult, graphQLService.executeGraphQLQuery(query))
+    }
+
+    @Test
+    fun queryWithVariableWhere() {
+        val variableQuery = """
+            query FilmList(${'$'}where: FilmWhere) {
+              filmByIds(where: ${'$'}where, limit: 3) {
+                edges { node { film_id title } }
+              }
+            }
+        """.trimIndent()
+        val variables = mapOf(
+            "where" to objectMapper.readTree("""{ "_or": [ { "title": { "_ilike": "%ACADEMY%" } }, { "title": { "_ilike": "%ACE%" } } ] }""")
+        )
+        val inlineQuery = """
+            query {
+              filmByIds(where: { _or: [ { title: { _ilike: "%ACADEMY%" } }, { title: { _ilike: "%ACE%" } } ] }, limit: 3) {
+                edges { node { film_id title } }
+              }
+            }
+        """.trimIndent()
+
+        val withVariables = graphQLService.executeGraphQLQuery(RequestInfo(parser.parseDocument(variableQuery), "FilmList", variables))
+        val withInline = graphQLService.executeGraphQLQuery(inlineQuery)
+        assertJsonEquals(withInline, withVariables)
+    }
+
+    @Test
+    fun queryWithVariableOrderBy() {
+        val variableQuery = """
+            query FilmList(${'$'}orderBy: [FilmOrder!]) {
+              allFilms(orderBy: ${'$'}orderBy, limit: 3) {
+                edges { node { film_id title } }
+              }
+            }
+        """.trimIndent()
+        val variables = mapOf(
+            "orderBy" to objectMapper.readTree("""[ { "title": "asc" } ]""")
+        )
+        val inlineQuery = """
+            query {
+              allFilms(orderBy: [{ title: asc }], limit: 3) {
+                edges { node { film_id title } }
+              }
+            }
+        """.trimIndent()
+
+        val withVariables = graphQLService.executeGraphQLQuery(RequestInfo(parser.parseDocument(variableQuery), "FilmList", variables))
+        val withInline = graphQLService.executeGraphQLQuery(inlineQuery)
+        assertJsonEquals(withInline, withVariables)
+    }
+
+    @Test
+    fun queryWithVariableNot() {
+        val variableQuery = """
+            query FilmList(${'$'}not: FilmWhere) {
+              filmByIds(where: { _not: ${'$'}not }, limit: 3) {
+                edges { node { film_id title } }
+              }
+            }
+        """.trimIndent()
+        val variables = mapOf(
+            "not" to objectMapper.readTree("""{ "title": { "_ilike": "%ACADEMY%" } }""")
+        )
+        val inlineQuery = """
+            query {
+              filmByIds(where: { _not: { title: { _ilike: "%ACADEMY%" } } }, limit: 3) {
+                edges { node { film_id title } }
+              }
+            }
+        """.trimIndent()
+
+        val withVariables = graphQLService.executeGraphQLQuery(RequestInfo(parser.parseDocument(variableQuery), "FilmList", variables))
+        val withInline = graphQLService.executeGraphQLQuery(inlineQuery)
+        assertJsonEquals(withInline, withVariables)
+    }
+
+    @Test
+    fun queryWithVariableColumnComparison() {
+        val variableQuery = """
+            query FilmList(${'$'}titleCmp: String_comparison_exp) {
+              filmByIds(where: { title: ${'$'}titleCmp }, limit: 3) {
+                edges { node { film_id title } }
+              }
+            }
+        """.trimIndent()
+        val variables = mapOf(
+            "titleCmp" to objectMapper.readTree("""{ "_ilike": "%ACADEMY%" }""")
+        )
+        val inlineQuery = """
+            query {
+              filmByIds(where: { title: { _ilike: "%ACADEMY%" } }, limit: 3) {
+                edges { node { film_id title } }
+              }
+            }
+        """.trimIndent()
+
+        val withVariables = graphQLService.executeGraphQLQuery(RequestInfo(parser.parseDocument(variableQuery), "FilmList", variables))
+        val withInline = graphQLService.executeGraphQLQuery(inlineQuery)
+        assertJsonEquals(withInline, withVariables)
+    }
+
+    @Test
+    fun queryWithVariableDistinctOn() {
+        val variableQuery = """
+            query FilmList(${'$'}distinctOn: [Film_select_column!], ${'$'}orderBy: [FilmOrder!]) {
+              allFilms(distinctOn: ${'$'}distinctOn, orderBy: ${'$'}orderBy, limit: 3) {
+                edges { node { title release_year } }
+              }
+            }
+        """.trimIndent()
+        val variables = mapOf(
+            "distinctOn" to objectMapper.readTree("""[ "title" ]"""),
+            "orderBy" to objectMapper.readTree("""[ { "title": "asc" } ]""")
+        )
+        val inlineQuery = """
+            query {
+              allFilms(distinctOn: [title], orderBy: [{ title: asc }], limit: 3) {
+                edges { node { title release_year } }
+              }
+            }
+        """.trimIndent()
+
+        val withVariables = graphQLService.executeGraphQLQuery(RequestInfo(parser.parseDocument(variableQuery), "FilmList", variables))
+        val withInline = graphQLService.executeGraphQLQuery(inlineQuery)
+        assertJsonEquals(withInline, withVariables)
     }
 }

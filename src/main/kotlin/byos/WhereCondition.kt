@@ -55,8 +55,9 @@ class WhereCondition(private val tableAndConditionService: TableAndConditionServ
             else -> error("Unsupported argument type ${value.javaClass}")
         }
 
-    fun getForAfterArgument(afterArgument: Argument, orderByFields: List<SortField<*>>, table: Table<out Record>): Condition {
-        val after = (afterArgument.value as StringValue).value
+    fun getForAfterArgument(afterArgument: Argument, variables: Map<String, JsonNode>, orderByFields: List<SortField<*>>, table: Table<out Record>): Condition {
+        val resolved = ConditionFactory.resolveVariable(afterArgument.value, variables)
+        val after = (resolved as StringValue).value
         val json = ObjectMapper().readTree(after)
         val afterValues = json.fields().asSequence().map { it.key to it.value.asText() }.toList()
 

@@ -27,7 +27,15 @@ public class ConditionFactory {
             Table<?> table,
             TableAndConditionService tableAndConditionService
     ) {
-        return getCondition(getWhereObject(whereArgument.getValue()), variables, table, tableAndConditionService);
+        return getCondition(getWhereObject(resolveVariable(whereArgument.getValue(), variables)), variables, table, tableAndConditionService);
+    }
+
+    public static Value resolveVariable(Value value, Map<String, JsonNode> variables) {
+        if (value instanceof VariableReference) {
+            JsonNode node = variables.get(((VariableReference) value).getName());
+            return node == null ? null : jsonNodeToValue(node);
+        }
+        return value;
     }
 
     public static Condition getCondition(ObjectValue objectValue, Map<String, JsonNode> variables, Table<?> table, TableAndConditionService tableAndConditionService) {
@@ -82,7 +90,7 @@ public class ConditionFactory {
                         .collect(Collectors.toList()));
             }
             case CONDITION_NOT: {
-                return DSL.not(getCondition((ObjectValue) objectField.getValue(), variables, table, tableAndConditionService)); 
+                return DSL.not(getCondition((ObjectValue) resolveVariable(objectField.getValue(), variables), variables, table, tableAndConditionService));
             }
             default: {
 
@@ -92,8 +100,9 @@ public class ConditionFactory {
                 }
                 // if the name does not match with any columns in the current table and it is is a nested object
                 // (not a scalar)
-                if (tableAndConditionService != null && objectField.getValue() instanceof ObjectValue) {
-                    ObjectValue nestedWhere = (ObjectValue) objectField.getValue();
+                Value nestedValue = resolveVariable(objectField.getValue(), variables);
+                if (tableAndConditionService != null && nestedValue instanceof ObjectValue) {
+                    ObjectValue nestedWhere = (ObjectValue) nestedValue;
 
                     Table<?> relatedTable = tableAndConditionService.getRelatedTable(name, table);
                     if (relatedTable != null) {
@@ -174,11 +183,12 @@ public class ConditionFactory {
     }
 
     protected static Condition getCondition(Field field, Map<String, JsonNode> variables, Value objectValue) {
-        if (!(objectValue instanceof ObjectValue)) {
+        Value resolved = resolveVariable(objectValue, variables);
+        if (!(resolved instanceof ObjectValue)) {
             throw new IllegalArgumentException("Handling for value not yet implemented: " + objectValue);
         }
 
-        List<ObjectField> objectFields = ((ObjectValue) objectValue).getObjectFields();
+        List<ObjectField> objectFields = ((ObjectValue) resolved).getObjectFields();
         Condition combinedCondition = null;
 
         for (ObjectField objectField : objectFields) {
